@@ -25,7 +25,7 @@ from frame import Frame
 def animate(
     frames,
     output_folder=None,
-    show_stage=True,
+    show_main=True,
     show_components=True,
     show_calculations=True,
     scale=2,
@@ -58,7 +58,7 @@ def animate(
         ]
 
     def stage_traces(frame: Frame):
-        if not show_stage:
+        if not show_main:
             return []
 
         return scene_traces(frame, meta=dict(row=1, col=1))
@@ -124,7 +124,7 @@ def animate(
             layout=dict(
                 annotations=[
                     *weight_annotations(
-                        frame.w, height, frame.focused_feature, frame.focus_labels, visible=show_stage, theme=theme
+                        frame.w, height, frame.focused_feature, frame.focus_labels, visible=show_main, theme=theme
                     )
                 ],
                 scene=dict(
@@ -137,14 +137,14 @@ def animate(
                     yaxis=dict(backgroundcolor=feature_colors[0]),
                     zaxis=dict(range=frame.zrange),
                     annotations=[
-                        *inference_annotation(frame, visible=show_stage),
+                        *inference_annotation(frame, visible=show_main),
                         *loss_annotations(
                             frame,
-                            visible=show_stage and frame.focused_feature is None,
+                            visible=show_main and frame.focused_feature is None,
                         ),
                         *feature_annotations(
                             frame,
-                            visible=show_stage and frame.focused_feature is not None,
+                            visible=show_main and frame.focused_feature is not None,
                             theme=theme,
                         ),
                     ],
@@ -176,7 +176,7 @@ def animate(
     if not output_folder:
         height += 130
 
-        if not show_stage:
+        if not show_main:
             height -= 1920 - (280 + 800)
             row_heights[0] = 0
 
@@ -205,7 +205,7 @@ def animate(
         showlegend=False,
         transition=dict(duration=0, easing="linear", ordering="traces first"),
         font=dict(family="Comic Sans MS, Droid Sans, sans-serif", size=24),
-        annotations=[*weight_annotations(frame.w, height, None, None, visible=show_stage, theme=theme)],
+        annotations=[*weight_annotations(frame.w, height, None, None, visible=show_main, theme=theme)],
     )
 
     feature_colors = theme.feature_colors
