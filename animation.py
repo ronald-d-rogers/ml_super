@@ -1,3 +1,4 @@
+from typing import NamedTuple
 import torch
 import os
 
@@ -9,7 +10,7 @@ from dataclasses import replace
 import tqdm
 
 
-from themes import default_theme
+from themes import Theme, default_theme
 from annotations import (
     loss_annotations,
     focusable_feature_colors,
@@ -20,6 +21,175 @@ from annotations import (
 from traces import data_markers, model_surface, loss_tables
 
 from frame import Frame
+
+
+class Animation(NamedTuple):
+    frames: list[Frame]
+    output_folder: str
+    show_main: bool
+    show_components: bool
+    show_calculations: bool
+    height: int
+    width: int
+    marker_size: int
+    line_width: int
+    scale: int
+    theme: Theme
+
+
+def scene_traces(
+    frame: Frame,
+    marker_size=30,
+    line_width=10,
+    meta=None,
+    theme=default_theme,
+):
+    return [
+        *data_markers(
+            frame,
+            marker_size=marker_size,
+            line_width=line_width,
+            standoff=0.033,
+            meta=meta,
+            theme=theme,
+        ),
+        *model_surface(
+            frame,
+            meta=meta,
+        ),
+    ]
+
+
+def main_traces(frame: Frame, animation: Animation):
+    if not animation.show_main:
+        return []
+
+    marker_size = animation.marker_size
+    line_width = animation.line_width
+    theme = animation.theme
+
+    return scene_traces(
+        frame,
+        marker_size=marker_size,
+        line_width=line_width,
+        theme=theme,
+        meta=dict(row=1, col=1),
+    )
+
+
+def component_traces(frame: Frame, animation: Animation):
+    show_components = animation.show_components
+
+    if not show_components:
+        return []
+
+    w = frame.w
+
+    w1, w2, bias = [], [], []
+
+    if isinstance(show_components, bool):
+        show_w1, show_w2, show_bias = (True, True, True)
+    else:
+        show_w1, show_w2, show_bias = show_components
+
+    marker_size = animation.marker_size / 2
+    line_width = animation.line_width / 2
+
+    if show_w1:
+        w1 = scene_traces(
+            replace(frame, w=torch.Tensor([1, 0]) * w, focused_feature=None, show_surface=False, planarity=1),
+            marker_size=marker_size,
+            line_width=line_width,
+            meta=dict(row=2, col=1),
+        )
+
+    if show_w2:
+        w2 = scene_traces(
+            replace(frame, w=torch.Tensor([0, 1]) * w, focused_feature=None, show_surface=False, planarity=1),
+            marker_size=marker_size,
+            line_width=line_width,
+            meta=dict(row=2, col=2),
+        )
+
+    if show_bias:
+        bias = scene_traces(
+            replace(frame, w=torch.Tensor([0, 0]) * w, focused_feature=None, show_surface=False, planarity=1),
+            marker_size=marker_size,
+            line_width=line_width,
+            meta=dict(row=2, col=3),
+        )
+
+    return [*w1, *w2, *bias]
+
+
+def calculation_traces(frame: Frame, animation: Animation):
+    if not animation.show_calculations:
+        return []
+
+    return loss_tables(
+        frame,
+        theme=animation.theme,
+        meta=(dict(row=3, col=1), dict(row=4, col=1)),
+    )
+
+
+def make_frame(frame: Frame, animation: Animation, name: str):
+    feature_colors = focusable_feature_colors(frame.focused_feature, theme=animation.theme)
+
+    return go.Frame(
+        name=name,
+        data=[
+            *main_traces(frame, animation),
+            *component_traces(frame, animation),
+            *calculation_traces(frame, animation),
+        ],
+        layout=dict(
+            annotations=[
+                *weight_annotations(
+                    frame.w,
+                    animation.height,
+                    frame.focused_feature,
+                    frame.focus_labels,
+                    visible=animation.show_main,
+                    theme=animation.theme,
+                )
+            ],
+            scene=dict(
+                camera=dict(eye=dict(x=frame.eye[0], y=frame.eye[1], z=frame.eye[2])),
+                aspectratio=dict(x=frame.aspect_ratio[0], y=frame.aspect_ratio[1], z=frame.aspect_ratio[2]),
+                xaxis_title="",
+                yaxis_title="",
+                zaxis_title="",
+                xaxis=dict(backgroundcolor=feature_colors[1]),
+                yaxis=dict(backgroundcolor=feature_colors[0]),
+                zaxis=dict(range=frame.zrange),
+                annotations=[
+                    *inference_annotation(frame, visible=animation.show_main),
+                    *loss_annotations(
+                        frame,
+                        visible=animation.show_main and frame.focused_feature is None,
+                    ),
+                    *feature_annotations(
+                        frame,
+                        visible=animation.show_main and frame.focused_feature is not None,
+                        theme=animation.theme,
+                    ),
+                ],
+            ),
+            scene2=dict(
+                xaxis=dict(backgroundcolor=feature_colors[1]),
+                yaxis=dict(backgroundcolor=feature_colors[0]),
+            ),
+            scene3=dict(
+                xaxis=dict(backgroundcolor=feature_colors[1]),
+                yaxis=dict(backgroundcolor=feature_colors[0]),
+            ),
+            scene4=dict(
+                xaxis=dict(backgroundcolor=feature_colors[1]),
+                yaxis=dict(backgroundcolor=feature_colors[0]),
+            ),
+        ),
+    )
 
 
 def animate(
@@ -35,141 +205,6 @@ def animate(
     width = 1080
 
     frame = frames[0]
-
-    def scene_traces(
-        frame: Frame,
-        marker_size=30,
-        line_width=10,
-        meta=None,
-    ):
-        return [
-            *data_markers(
-                frame,
-                marker_size=marker_size,
-                line_width=line_width,
-                standoff=0.033,
-                meta=meta,
-                theme=theme,
-            ),
-            *model_surface(
-                frame,
-                meta=meta,
-            ),
-        ]
-
-    def stage_traces(frame: Frame):
-        if not show_main:
-            return []
-
-        return scene_traces(frame, meta=dict(row=1, col=1))
-
-    def component_traces(frame: Frame):
-        if not show_components:
-            return []
-
-        w = frame.w
-
-        w1, w2, bias = [], [], []
-
-        if isinstance(show_components, bool):
-            show_w1, show_w2, show_bias = (True, True, True)
-        else:
-            show_w1, show_w2, show_bias = show_components
-
-        args = dict(marker_size=16, line_width=5)
-
-        if show_w1:
-            w1 = scene_traces(
-                replace(frame, w=torch.Tensor([1, 0]) * w, focused_feature=None, show_surface=False, planarity=1),
-                **args,
-                meta=dict(row=2, col=1),
-            )
-
-        if show_w2:
-            w2 = scene_traces(
-                replace(frame, w=torch.Tensor([0, 1]) * w, focused_feature=None, show_surface=False, planarity=1),
-                **args,
-                meta=dict(row=2, col=2),
-            )
-
-        if show_bias:
-            bias = scene_traces(
-                replace(frame, w=torch.Tensor([0, 0]) * w, focused_feature=None, show_surface=False, planarity=1),
-                **args,
-                meta=dict(row=2, col=3),
-            )
-
-        return [*w1, *w2, *bias]
-
-    def calculation_traces(frame: Frame):
-        if not show_calculations:
-            return []
-
-        return loss_tables(
-            frame,
-            meta=(dict(row=3, col=1), dict(row=4, col=1)),
-            theme=theme,
-        )
-
-    def make_frame(frame: Frame, name=None):
-        feature_colors = focusable_feature_colors(frame.focused_feature, theme=theme)
-
-        return go.Frame(
-            name=name,
-            data=[
-                *stage_traces(frame),
-                *component_traces(frame),
-                *calculation_traces(frame),
-            ],
-            layout=dict(
-                annotations=[
-                    *weight_annotations(
-                        frame.w, height, frame.focused_feature, frame.focus_labels, visible=show_main, theme=theme
-                    )
-                ],
-                scene=dict(
-                    camera=dict(eye=dict(x=frame.eye[0], y=frame.eye[1], z=frame.eye[2])),
-                    aspectratio=dict(x=frame.aspect_ratio[0], y=frame.aspect_ratio[1], z=frame.aspect_ratio[2]),
-                    xaxis_title="",
-                    yaxis_title="",
-                    zaxis_title="",
-                    xaxis=dict(backgroundcolor=feature_colors[1]),
-                    yaxis=dict(backgroundcolor=feature_colors[0]),
-                    zaxis=dict(range=frame.zrange),
-                    annotations=[
-                        *inference_annotation(frame, visible=show_main),
-                        *loss_annotations(
-                            frame,
-                            visible=show_main and frame.focused_feature is None,
-                        ),
-                        *feature_annotations(
-                            frame,
-                            visible=show_main and frame.focused_feature is not None,
-                            theme=theme,
-                        ),
-                    ],
-                ),
-                scene2=dict(
-                    xaxis=dict(backgroundcolor=feature_colors[1]),
-                    yaxis=dict(backgroundcolor=feature_colors[0]),
-                ),
-                scene3=dict(
-                    xaxis=dict(backgroundcolor=feature_colors[1]),
-                    yaxis=dict(backgroundcolor=feature_colors[0]),
-                ),
-                scene4=dict(
-                    xaxis=dict(backgroundcolor=feature_colors[1]),
-                    yaxis=dict(backgroundcolor=feature_colors[0]),
-                ),
-            ),
-        )
-
-    specs = [
-        [dict(type="scene", colspan=3), None, None],
-        [dict(type="scene"), dict(type="scene"), dict(type="scene")],
-        [dict(type="table", colspan=3), None, None],
-        [dict(type="table", colspan=3), None, None],
-    ]
 
     row_heights = [14, 4.5, 14, 2.333]
 
@@ -188,6 +223,13 @@ def animate(
             height -= 800
             row_heights[2] = 0
             row_heights[3] = 0
+
+    specs = [
+        [dict(type="scene", colspan=3), None, None],
+        [dict(type="scene"), dict(type="scene"), dict(type="scene")],
+        [dict(type="table", colspan=3), None, None],
+        [dict(type="table", colspan=3), None, None],
+    ]
 
     fig = make_subplots(
         rows=4,
@@ -269,10 +311,24 @@ def animate(
             zaxis=dict(showticklabels=False, range=[-5.1, 5.1]),
         )
 
+    animation = Animation(
+        frames=frames,
+        output_folder=output_folder,
+        show_main=show_main,
+        show_components=show_components,
+        show_calculations=show_calculations,
+        height=height,
+        width=width,
+        marker_size=30,
+        line_width=10,
+        scale=scale,
+        theme=theme,
+    )
+
     if output_folder:
         os.makedirs(output_folder, exist_ok=True)
 
-        frame = make_frame(frames[0], 0)
+        frame = make_frame(frames[0], animation, name=0)
 
         for trace in frame.data:
             fig.add_trace(trace=trace, row=trace.meta["row"], col=trace.meta["col"])
@@ -282,7 +338,7 @@ def animate(
         fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
 
         for i, frame in enumerate(tqdm.tqdm(frames)):
-            frame = make_frame(frame, i)
+            frame = make_frame(frame, animation, name=i)
 
             for trace1, trace2 in zip(fig.data, frame.data):
                 trace1.update(trace2)
@@ -294,7 +350,7 @@ def animate(
             fig.write_image(os.path.join(output_folder, f"{num}.png"), format="png", scale=scale)
 
     else:
-        frames = [make_frame(frame, i) for i, frame in enumerate(frames)]
+        frames = [make_frame(frame, animation, name=i) for i, frame in enumerate(frames)]
 
         for trace in frames[0].data:
             fig.add_trace(trace=trace, row=trace.meta["row"], col=trace.meta["col"])

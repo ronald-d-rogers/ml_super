@@ -86,7 +86,7 @@ def pred_markers(
     targs,
     indices,
     size=default_marker_size,
-    standoff=None,
+    standoff=0.033,
     opacity=1,
     visible=True,
     meta=None,
@@ -134,7 +134,7 @@ def data_markers(
     frame: Frame,
     marker_size=30,
     line_width=10,
-    standoff=0,
+    standoff=0.033,
     meta=None,
     theme=default_theme,
 ):
@@ -175,14 +175,21 @@ def data_markers(
     traces += [
         target_markers(X, targs, indices, focus_targets, size=marker_size, standoff=standoff, meta=meta),
         feature_lines(
-            X, preds, targs, focused_feature, marker_size, visible=show_feature_lines, meta=meta, theme=theme
+            X,
+            preds,
+            targs,
+            focused_feature,
+            marker_size=marker_size,
+            visible=show_feature_lines,
+            meta=meta,
+            theme=theme,
         ),
         pred_markers(
             X,
             preds,
             targs,
             indices,
-            marker_size,
+            size=marker_size,
             standoff=standoff,
             opacity=preds_opacity,
             visible=show_preds,
@@ -195,17 +202,24 @@ def data_markers(
     line = dict(color="red", width=10)
 
     traces += [
-        loss_lines(X, preds, targs, line_width, line=line, meta=meta),
+        loss_lines(X, preds, targs, width=line_width, line=line, meta=meta),
         feature_lines(
-            X, preds, targs, focused_feature, marker_size, visible=show_feature_lines, meta=meta, theme=theme
+            X,
+            preds,
+            targs,
+            focused_feature,
+            marker_size=marker_size,
+            visible=show_feature_lines,
+            meta=meta,
+            theme=theme,
         ),
-        target_markers(X, targs, indices, focus_targets, marker_size, standoff=standoff, meta=meta),
+        target_markers(X, targs, indices, focus_targets, size=marker_size, standoff=standoff, meta=meta),
         pred_markers(
             X,
             preds,
             targs,
             indices,
-            marker_size,
+            size=marker_size,
             standoff=standoff,
             opacity=preds_opacity,
             visible=show_preds,

@@ -442,8 +442,8 @@ def get_animation(
                 np.linspace(eye[1], final_eye[1], 10),
                 np.linspace(eye[2], final_eye[2], 10),
                 np.linspace(aspect_ratio[0], final_aspect_ratio[0], 10),
-                np.linspace(aspect_ratio[1], final_aspect_ratio[1] + 0.2, 10),
-                np.linspace(aspect_ratio[2], final_aspect_ratio[2] + 0.2, 10),
+                np.linspace(aspect_ratio[1], final_aspect_ratio[1], 10),
+                np.linspace(aspect_ratio[2], final_aspect_ratio[2], 10),
             ),
             axis=1,
         ):
@@ -502,12 +502,13 @@ def get_animation(
     # Now let's make a prediction. the points on the upper half are classified as 1 and the below half, 0.
     # And the dotted line that separates the halves is the decision boundary.
     if "inference" in chapters:
-        eye = final_eye
-        aspect_ratio = final_aspect_ratio
-        planarity = 0
         w = torch.Tensor(final_w)
         b = final_b
+        planarity = 0
         preds = predict(X, w, b, planarity)
+
+        eye = final_eye
+        aspect_ratio = final_aspect_ratio
 
         show_surface = False
         show_decision_boundary = True
