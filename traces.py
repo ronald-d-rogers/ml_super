@@ -1,8 +1,10 @@
+import numpy as np
 import torch
 import plotly.graph_objects as go
-from frame import Frame
+from base import Frame, Animation
+from learning import predict
 from themes import default_theme
-from utils import predict, focusable_feature_colors
+from utils import hex_to_rgb, interp_rgb, rgb_to_str
 
 
 default_marker_size = 30
@@ -10,7 +12,7 @@ default_marker_size = 30
 
 def loss_lines(X, preds, targs, width=10, opacity=1, line=None, visible=True, meta=None):
     if not line:
-        line = dict(color="#2B3F60", width=width, dash="dot")
+        line = dict(color="white", width=5, dash="dot")
 
     xs, ys, zs = [], [], []
 
@@ -33,7 +35,7 @@ def loss_lines(X, preds, targs, width=10, opacity=1, line=None, visible=True, me
 
 
 def feature_lines(
-    X, preds, targs, focused=None, marker_size=default_marker_size, visible=True, meta=None, theme=default_theme
+    X, preds, targs, focused_inputs=None, marker_size=default_marker_size, visible=True, meta=None, theme=default_theme
 ):
     m = X.shape[0]
     xs, ys, zs = [], [], []
@@ -41,11 +43,11 @@ def feature_lines(
     if m:
         for x, y, p, t in torch.stack((X[:, 0], X[:, 1], preds, targs), dim=1):
             t = int(t)
-            xs.extend([x, x if focused == 1 else 0, None])
-            ys.extend([y, y if focused == 0 else 0, None])
+            xs.extend([x, x if focused_inputs == 1 else 0, None])
+            ys.extend([y, y if focused_inputs == 0 else 0, None])
             zs.extend([p, p, None])
 
-    color = theme.feature_colors[focused] if focused is not None else "black"
+    color = theme.feature_colors[focused_inputs] if focused_inputs is not None else "black"
 
     return go.Scatter3d(
         x=xs,
@@ -61,20 +63,31 @@ def feature_lines(
 
 
 def target_markers(
-    X, targs, indices, focus=None, size=default_marker_size, standoff=None, meta=None, theme=default_theme
+    X, preds, targs, indices, focus=None, size=default_marker_size, standoff=None, meta=None, theme=default_theme
 ):
-    marker_color = [theme.class_colors[bool(t > 0.5)] for t in targs]
+    if focus:
+        marker_color = [theme.class_colors[bool(t > 0.5)] for t in targs]
+        textfont_color = "black"
+
+    else:
+        # if pred close enough to target, marker_color is transparent, else black
+        marker_color = "rgba(0, 0, 0, 0)"
+        textfont_color = [
+            "white" if abs(t - p) > 0.25 else "rgba(0, 0, 0, 0)" for t, p in torch.stack((targs, preds), dim=1)
+        ]
 
     return go.Scatter3d(
         x=X[:, 0],
         y=X[:, 1],
         z=targs + standoff,
         mode="markers+text",
-        marker=dict(size=size, line=dict(color="black", width=1)),
-        opacity=0.4 if not focus else 1,
-        marker_color=marker_color,
+        marker=dict(size=size, line=dict(color="white")),
+        # opacity=0.4 if not focus else 1,
+        # marker_color="rgba(0, 0, 0, 0)",
         text=[f"x<sub>{i+1}</sub>" for i in indices],
+        marker_color=marker_color,
         textfont_size=size,
+        textfont_color=textfont_color,
         textposition="middle center",
         meta=meta,
     )
@@ -141,39 +154,39 @@ def data_markers(
     X = frame.X
     w = frame.w
     b = frame.b
-    preds = frame.preds
-    targets = frame.targets
-    inference = frame.inference
+    preds = frame.preds[0]
+    targets = frame.targets[0]
+    inference = frame.inference[0] if frame.inference is not None else None
     focused_feature = frame.focused_feature
     focus_targets = frame.focus_targets
 
     m = X.shape[0]
 
-    focused = frame.focused
+    focused_inputs = frame.focused_inputs
 
-    if frame.focused is None:
-        focused = []
+    if frame.focused_inputs is None:
+        focused_inputs = []
 
-    if isinstance(frame.focused, int):
-        focused = [frame.focused]
+    if isinstance(frame.focused_inputs, int):
+        focused_inputs = [frame.focused_inputs]
 
-    traces = [loss_lines(frame.X, frame.preds, frame.targets, width=line_width, meta=meta)]
+    traces = [loss_lines(frame.X, frame.preds[0], frame.targets[0], width=line_width, meta=meta)]
 
-    foc = torch.Tensor([i in focused for i in range(m)])
+    foc = torch.Tensor([i in focused_inputs for i in range(m)])
 
     X_foc, X = X[foc == True], X[foc == False]  # noqa: E712
     preds_foc, preds = preds[foc == True], preds[foc == False]  # noqa: E712
     targs_foc, targs = targets[foc == True], targets[foc == False]  # noqa: E712
 
-    indices = [i for i in range(m) if i not in focused]
-    indices_foc = [i for i in range(m) if i in focused]
+    indices = [i for i in range(m) if i not in focused_inputs]
+    indices_foc = [i for i in range(m) if i in focused_inputs]
 
     show_preds = frame.show_preds
     preds_opacity = 0.4 if focus_targets else 1
     show_feature_lines = focused_feature is not None
 
     traces += [
-        target_markers(X, targs, indices, focus_targets, size=marker_size, standoff=standoff, meta=meta),
+        target_markers(X, preds, targs, indices, focus_targets, size=marker_size, standoff=standoff, meta=meta),
         feature_lines(
             X,
             preds,
@@ -213,7 +226,7 @@ def data_markers(
             meta=meta,
             theme=theme,
         ),
-        target_markers(X, targs, indices, focus_targets, size=marker_size, standoff=standoff, meta=meta),
+        target_markers(X, preds, targs, indices, focus_targets, size=marker_size, standoff=standoff, meta=meta),
         pred_markers(
             X,
             preds,
@@ -230,7 +243,9 @@ def data_markers(
     return traces
 
 
-def decision_boundary(w, b, domain, visible=True, meta=None):
+def decision_boundary(w: torch.Tensor, b: torch.Tensor, domain, visible=True, meta=None):
+    w = w.squeeze()
+
     m1 = w[0] / -w[1]
     m2 = -w[1] / w[0]
 
@@ -260,20 +275,27 @@ def decision_boundary(w, b, domain, visible=True, meta=None):
 
 
 def model_surface(frame: Frame, meta=None):
-    SX = frame.surface_points
-    SL = frame.surface_line
-    domain = frame.domain
+    surface_points = frame.surface_points
+    surface_linspace = frame.surface_linspace
+    hidden_w = frame.hidden_w
+    hidden_b = frame.hidden_b
     w = frame.w
     b = frame.b
+    domain = frame.get_domain(pad=True)
     planarity = frame.planarity
-    show_surface = frame.show_surface
-    show_decision_boundary = frame.show_decision_boundary
+    surface_color = frame.surface_color
+    show_decision_boundaries = frame.show_decision_boundaries
     res = frame.resolution
 
-    sx = SL[:, 0]
-    sy = SL[:, 1]
+    sx = surface_linspace[:, 0]
+    sy = surface_linspace[:, 1]
 
-    preds = predict(SX, w, b, planarity)
+    if hidden_w is not None:
+        preds = predict(surface_points, w=hidden_w, b=hidden_b).T
+        preds = predict(preds, w, b)
+    else:
+        preds = predict(surface_points, w, b, planarity=planarity)
+
     preds = torch.reshape(preds, (res, res))
     preds = torch.rot90(preds, 3)
     preds = torch.flip(preds, dims=[1])
@@ -283,33 +305,109 @@ def model_surface(frame: Frame, meta=None):
         y=sy,
         z=preds,
         showscale=False,
-        colorscale="plasma" if show_surface else ["black", "black"],
-        opacity=0.8 if show_surface else 1,
+        colorscale="plasma" if not surface_color else [surface_color, surface_color],
+        opacity=0.8 if not surface_color else 1,
         meta=meta,
     )
 
-    l1 = torch.stack((domain[0][0].expand(res), torch.flip(sy, dims=[0])))
-    l2 = torch.stack((sx, domain[1][0].expand(res)))
-    l3 = torch.stack((domain[0][1].expand(res), sy))
-    l4 = torch.stack((torch.flip(sx, dims=[0]), domain[1][1].expand(res)))
-    lines = torch.cat((l1.T, l2.T, l3.T, l4.T))
+    left = torch.stack((domain[0][0].expand(res), torch.flip(sy, dims=[0])))
+    top = torch.stack((sx, domain[1][0].expand(res)))
+    right = torch.stack((domain[0][1].expand(res), sy))
+    bottom = torch.stack((torch.flip(sx, dims=[0]), domain[1][1].expand(res)))
 
-    preds = predict(lines, w, b, planarity)
+    lines = torch.cat((left.T, top.T, right.T, bottom.T))
+
+    if hidden_w is not None:
+        preds = predict(lines, hidden_w, hidden_b).T
+        preds = predict(preds, w, b)
+    else:
+        preds = predict(lines, w, b, planarity=planarity)
 
     border = go.Scatter3d(
         x=lines[:, 0],
         y=lines[:, 1],
-        z=preds,
+        z=preds[0],
         mode="lines",
-        line=dict(color="black", width=6),
+        line=dict(color=surface_color or "black", width=6),
+        meta=meta,
+        visible=surface_color is not None,
+    )
+
+    boundary = decision_boundary(w, b, domain, visible=show_decision_boundaries, meta=meta)
+
+    return [surface, boundary, border]
+
+
+def neural_network(frame: Frame, animation: Animation, name="neural-network", meta=None):
+    feature_colors = animation.theme.feature_colors
+
+    # need to create a new trace that draws lines between neural network nodes
+    # for each layer, draw lines between each node in the layer to each node in the next layer
+    input_size = frame.input_size
+    hidden_size = frame.hidden_size
+    output_size = frame.output_size
+
+    # space out node markers between -1, 1 centered on 0
+    input_xs = np.linspace(-1, 1, input_size) if input_size > 1 else [0]
+    hidden_xs = np.linspace(-1, 1, hidden_size) if hidden_size > 1 else [0]
+    output_xs = np.linspace(-1, 1, output_size) if output_size > 1 else [0]
+
+    input_ys = [-2] * input_size
+    hidden_ys = [-1] * hidden_size
+    output_ys = [0] * output_size
+
+    input_points = list(zip(input_xs, input_ys))
+    hidden_points = list(zip(hidden_xs, hidden_ys))
+    output_points = list(zip(output_xs, output_ys))
+
+    # create a scatter plot with the nodes
+    nodes = go.Scatter(
+        name=name,
+        x=[x for x, _ in input_points + hidden_points + output_points],
+        y=[y for _, y in input_points + hidden_points + output_points],
+        mode="markers",
+        marker=dict(size=80, color="black"),
         meta=meta,
     )
 
-    boundary = decision_boundary(w, b, domain, visible=show_decision_boundary, meta=meta)
+    feature_colors = [hex_to_rgb(c) for c in feature_colors.values()]
+    input_colors = interp_rgb(feature_colors[0], feature_colors[1], input_size)
+    hidden_colors = interp_rgb(feature_colors[0], feature_colors[1], hidden_size)
+    input_colors = [rgb_to_str(c) for c in input_colors]
+    hidden_colors = [rgb_to_str(c) for c in hidden_colors]
 
-    objs = [surface, boundary, border]
+    lines = {}
+    for i, p1 in enumerate(input_points):
+        color = input_colors[i]
+        for p2 in hidden_points:
+            if color not in lines:
+                lines[color] = []
+            lines[color].extend([p1, p2, None])
 
-    return objs
+    for i, p1 in enumerate(hidden_points):
+        color = hidden_colors[i]
+        for p2 in output_points:
+            if color not in lines:
+                lines[color] = []
+            lines[color].extend([p1, p2, None])
+
+    # create a scatter plot with the edges
+    edges = []
+    for color in lines:
+        feature_lines = lines[color]
+        edges.append(
+            go.Scatter(
+                name=name,
+                x=[p[0] if p else None for p in feature_lines],
+                y=[p[1] if p else None for p in feature_lines],
+                mode="lines",
+                line=dict(width=5, color=color),
+                # marker_color=colors,
+                meta=meta,
+            )
+        )
+
+    return [nodes, *edges]
 
 
 def loss_tables(
@@ -320,24 +418,23 @@ def loss_tables(
     X = frame.X
     preds = frame.preds
     targets = frame.targets
-    focused_feature = frame.focused_feature
     focus_total_loss = frame.focus_total_loss
     lr = frame.learning_rate
     class_colors = theme.class_colors
 
-    feature_colors = focusable_feature_colors(focused_feature, theme)
+    feature_colors = frame.focusable_feature_colors(theme)
 
-    focused = frame.focused
+    focused_inputs = frame.focused_inputs
 
-    if frame.focused is None:
-        focused = range(X.shape[0])
+    if frame.focused_inputs is None:
+        focused_inputs = range(X.shape[0])
 
-    if isinstance(focused, int):
-        focused = list(range(focused + 1))
+    if isinstance(focused_inputs, int):
+        focused_inputs = list(range(focused_inputs + 1))
 
-    X = X[focused]
-    targets = targets[focused]
-    preds = preds[focused]
+    X = X[focused_inputs]
+    targets = targets[0][focused_inputs]
+    preds = preds[0][focused_inputs]
 
     m = X.shape[0]
 

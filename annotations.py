@@ -1,9 +1,7 @@
 import torch
 
-from typing import Union
-
-from frame import Frame
-from themes import Theme, default_theme
+from base import Frame, focusable_feature_colors
+from themes import default_theme
 
 
 def loss_annotations(frame: Frame, visible=True):
@@ -11,18 +9,18 @@ def loss_annotations(frame: Frame, visible=True):
         return []
 
     X = frame.X
-    targets = frame.targets
-    preds = frame.preds
+    targets = frame.targets[0]
+    preds = frame.preds[0]
 
     m = X.shape[0]
 
-    focused = frame.focused
+    focused_inputs = frame.focused_inputs
 
-    if not frame.focused:
-        focused = range(m)
+    if not frame.focused_inputs:
+        focused_inputs = range(m)
 
-    if isinstance(frame.focused, int):
-        focused = [frame.focused]
+    if isinstance(frame.focused_inputs, int):
+        focused_inputs = [frame.focused_inputs]
 
     # use pred for z if target is 0 else use target
     z = [pred if t == 0 else t for t, pred in zip(targets, preds)]
@@ -41,20 +39,10 @@ def loss_annotations(frame: Frame, visible=True):
             showarrow=False,
         )
         for i, pred in enumerate(preds)
-        if i in focused
+        if i in focused_inputs
     ]
 
     return test
-
-
-def focusable_feature_colors(focused_feature: Union[None, bool], theme: Theme):
-    if focused_feature is not None:
-        return {
-            0: theme.focused_feature_colors[0] if focused_feature == 0 else theme.feature_colors[0],
-            1: theme.focused_feature_colors[1] if focused_feature == 1 else theme.feature_colors[1],
-        }
-    else:
-        return theme.feature_colors
 
 
 def feature_annotations(
@@ -66,21 +54,21 @@ def feature_annotations(
     if not visible:
         return []
 
-    preds = frame.preds
     focused_feature = frame.focused_feature
 
     if feature_colors is None:
         feature_colors = theme.feature_colors
 
     X = frame.X
-    targets = frame.targets
+    preds = frame.preds[0]
+    targets = frame.targets[0]
 
     m = X.shape[0]
 
-    focused = frame.focused
+    focused_inputs = frame.focused_inputs
 
-    if not frame.focused:
-        focused = range(m)
+    if not frame.focused_inputs:
+        focused_inputs = range(m)
 
     annotations = []
 
@@ -101,7 +89,7 @@ def feature_annotations(
             showarrow=False,
         )
 
-    for i in focused:
+    for i in focused_inputs:
         if focused_feature in (None, 0):
             note = annotation(i, 0, X[:, 0][i], X[:, 1][i], z[i])
 
@@ -127,8 +115,8 @@ def inference_annotation(frame: Frame, visible=True):
     text = f"<b>{pred:.2f} {'>' if pred > 0.5 else '<'} 0.5</b>"
     return [
         dict(
-            x=inference[0],
-            y=inference[1],
+            x=inference[0][0],
+            y=inference[0][1],
             z=pred,
             yshift=40,
             bgcolor="rgba(255,255,255,.8)",
@@ -141,6 +129,7 @@ def inference_annotation(frame: Frame, visible=True):
 
 def weight_annotations(
     w,
+    b,
     height,
     focused_feature,
     focus_labels,
@@ -150,10 +139,15 @@ def weight_annotations(
     if not visible:
         return []
 
+    w = w[0]
+    b = b[0]
+
     if focus_labels:
         feature_colors = theme.focused_feature_colors
     else:
         feature_colors = focusable_feature_colors(focused_feature, theme)
+
+    bias_color = theme.target_color
 
     annotation = dict(
         yanchor="top",
@@ -179,5 +173,13 @@ def weight_annotations(
             y=1 - (60 / height),
             bgcolor=feature_colors[1],
             text=f"Feature 2: <b>{w[1]:1.3f}</b>",
+        ),
+        dict(
+            **annotation,
+            x=1 - 0.05,
+            y=1 - (768 / height),
+            bgcolor=bias_color,
+            text=f"bias: <b>{b[0]:1.3f}</b>",
+            font_color=theme.target_text_color,
         ),
     ]
