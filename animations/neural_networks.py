@@ -37,7 +37,7 @@ def get_animation(
             weight_eyes=weight_eyes,
             bias_eye=bias_eye,
             inference=inference.clone() if inference is not None else None,
-            planarity=planarity,
+            activity=activity,
             focused_node=focused_node,
             focused_connections=clone(focused_connections),
             focused_feature=focused_feature,
@@ -71,11 +71,7 @@ def get_animation(
     xor_targets = torch.Tensor([[0, 1, 1, 0]])
     inference = None
 
-    size = {
-        "input": 2,
-        "hidden": 2,
-        "output": 1,
-    }
+    size = {"input": 2, "hidden": 2, "output": 1}
 
     intial_eye = (1.2, -0.8, 1)
     initial_weight_eyes = ((1, -1, 0), (1, -1, 0))
@@ -98,7 +94,7 @@ def get_animation(
     bias_eye = (1, -1, 0)
     bias_zrange = (-5.5, 6.6)
 
-    planarity = 0
+    activity = 1
     epochs = 30
     learning_rate = 1
 
@@ -115,7 +111,7 @@ def get_animation(
     focused_errors = {"output": [[]], "hidden": [[]]}
     focused_losses = {"output": [[]], "hidden": [[]]}
 
-    planarity = 0
+    activity = 1
     focused_feature = None
     focus_labels = None
     focus_targets = False

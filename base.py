@@ -80,7 +80,7 @@ class View:
     costs: torch.Tensor = None
     focused_preds: List[int] = None
     focused_errors: List[int] = None
-    planarity: float = 0
+    activity: float = 1
     weight_eyes: Tuple[Tuple[float, float, float], ...] = ((0, 1, 0), (1, 0, 0))
     bias_eye: Tuple[float, float, float] = (1, 1, 0)
 
@@ -145,7 +145,7 @@ class Animation:
         frame: "Frame",
         component: str = None,
         weight_eyes: Tuple[Tuple[float, float, float], ...] = None,
-        planarity: float = None,
+        activity: float = None,
     ):
         module = self.node_module
         index = self.node_index
@@ -186,25 +186,25 @@ class Animation:
                 if "hidden" in w:
                     w["hidden"] = torch.Tensor([[1, 0]]).T * w["hidden"]
                     b["hidden"] = torch.Tensor([[1, 0]]).T * b["hidden"]
-                    planarity = planarity if planarity is not None else 0
+                    activity = activity if activity is not None else 1
                 else:
                     w["output"] = torch.Tensor([[1, 0]]) * w["output"]
                     b["output"] = torch.Tensor([[0]])
-                    planarity = planarity if planarity is not None else 1
+                    activity = activity if activity is not None else 0
 
             elif component == "w2":
                 if "hidden" in w:
                     w["hidden"] = torch.Tensor([[0, 1]]).T * w["hidden"]
                     b["hidden"] = torch.Tensor([[0, 1]]).T * b["hidden"]
-                    planarity = planarity if planarity is not None else 0
+                    activity = activity if activity is not None else 1
                 else:
                     w["output"] = torch.Tensor([[0, 1]]) * w["output"]
                     b["output"] = torch.Tensor([[0]])
-                    planarity = planarity if planarity is not None else 1
+                    activity = activity if activity is not None else 0
 
             elif component == "b":
                 w["output"] = torch.Tensor([[0, 0]])
-                planarity = planarity if planarity is not None else 1
+                activity = activity if activity is not None else 0
 
                 if "hidden" in w:
                     del w["hidden"]
@@ -225,7 +225,7 @@ class Animation:
             focused_preds=get_node_data(frame.focused_preds, module, index),
             focused_errors=get_node_data(frame.focused_errors, module, index),
             weight_eyes=frame.weight_eyes if weight_eyes is None else weight_eyes,
-            planarity=frame.planarity if planarity is None else planarity,
+            activity=frame.activity if activity is None else activity,
         )
 
 
@@ -245,7 +245,7 @@ class Frame:
     epochs: int = 30
     learning_rate: float = 0.5
     resolution: int = 30
-    planarity: float = 0
+    activity: float = 1
     zrange: Optional[Tuple[float, float]] = (0, 1)
     bias_zrange: Optional[Tuple[float, float]] = (-1, 2)
     domain_padding: float = 2

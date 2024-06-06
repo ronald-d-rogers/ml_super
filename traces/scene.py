@@ -240,7 +240,7 @@ def model_surface(
     surface_linspace,
     w,
     b,
-    planarity=0,
+    activity=1,
     show_profile=False,
     show_decision_boundaries=False,
     res=20,
@@ -253,7 +253,7 @@ def model_surface(
         preds = predict(surface_points, w["hidden"], b["hidden"]).T
         preds = predict(preds, w["output"], b["output"])
     else:
-        preds = predict(surface_points, w["output"], b["output"], planarity=planarity)
+        preds = predict(surface_points, w["output"], b["output"], activity=activity)
 
     preds = torch.reshape(preds, (res, res))
     preds = torch.rot90(preds, 3)
@@ -280,7 +280,7 @@ def model_surface(
         preds = predict(lines, w["hidden"], b["hidden"]).T
         preds = predict(preds, w["output"], b["output"])
     else:
-        preds = predict(lines, w["output"], b["output"], planarity=planarity)
+        preds = predict(lines, w["output"], b["output"], activity=activity)
 
     border = go.Scatter3d(
         x=lines[:, 0],

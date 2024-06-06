@@ -13,6 +13,6 @@ def sigmoid_derivative(X):
     return sigmoid(X) * (1 - sigmoid(X))
 
 
-def predict(X, w, b, planarity=0, activation=sigmoid):
+def predict(X, w, b, activity=1, activation=sigmoid):
     preds = (w @ X.T) + b
-    return (preds * planarity) + (activation(preds) * (1 - planarity))
+    return (preds * (1 - activity)) + (activation(preds) * (activity))

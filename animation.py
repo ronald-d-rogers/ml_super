@@ -51,7 +51,7 @@ def scene_traces(
             surface_linspace=frame.surface_linspace,
             w=view.w,
             b=view.b,
-            planarity=view.planarity,
+            activity=view.activity,
             show_profile=show_profile,
             meta=meta,
         ),

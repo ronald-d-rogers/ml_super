@@ -31,7 +31,7 @@ def get_animation(
     m = X.size(0)
     w = torch.Tensor([0, 0])
     b = 0.5
-    preds = predict(X, w, b, planarity=1)
+    preds = predict(X, w, b, activity=0)
 
     epochs = 30
     learning_rate = 0.1
@@ -48,7 +48,7 @@ def get_animation(
     final_aspect_ratio = tuple(x + 0.2 for x in aspect_ratio)
 
     inference = None
-    planarity = 1
+    activity = 0
     focused_preds = None
     focused_errors = None
     focused_feature = None
@@ -74,7 +74,7 @@ def get_animation(
             learning_rate=learning_rate,
             size={"input": 2, "output": 1},
             inference=inference.clone() if inference is not None else None,
-            planarity=planarity,
+            activity=activity,
             focused_preds={"output": [focused_preds.copy()]} if focused_preds is not None else None,
             focused_errors={"output": [focused_errors.copy()]} if focused_errors is not None else None,
             focused_feature=focused_feature,
@@ -146,7 +146,7 @@ def get_animation(
             w[0] = i
             w[1] = j
             b = k
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         for i in ease_out(ls(1, 0, 10)):
@@ -164,16 +164,16 @@ def get_animation(
         focused_preds = None
 
         for s, i, j, k in zip(
-            ease_in(ls(1, 0, 10)),
+            ease_in(ls(0, 1, 10)),
             ls(w[0], 0.5, 10),
             ls(w[1], -0.5, 10),
             ls(b[0], 0.5, 10),
         ):
-            planarity = s
+            activity = s
             w[0] = i
             w[1] = j
             b[0] = k
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         focused_preds = list(range(m))
@@ -202,10 +202,10 @@ def get_animation(
             w[0] = i
             w[1] = j
             b[0] = k
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
-        planarity = 1
+        activity = 0
 
         capture(5)
 
@@ -215,53 +215,53 @@ def get_animation(
     if "weights" in chapters:
         for i in ls(w[1], -0.25, 10):
             w[0][1] = i
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         capture(5)
 
         for i in ls(w[1], -2, 10):
             w[0][1] = i
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         capture(10)
 
-        for i in ease_in(ls(1, 0, 10)):
-            planarity = i
-            preds = predict(X, w, b, planarity)
+        for i in ease_in(ls(0, 1, 10)):
+            activity = i
+            preds = predict(X, w, b, activity)
             capture()
 
         capture(30)
 
-        for i, j, k in zip(ls(w[0], 1.5, 15), ls(w[1], -0.5, 15), list(ease_in(ls(0, 1, 15)))):
+        for i, j, k in zip(ls(w[0], 1.5, 15), ls(w[1], -0.5, 15), list(ease_in(ls(1, 0, 15)))):
             w[0] = i
             w[1] = j
-            planarity = k
-            preds = predict(X, w, b, planarity)
+            activity = k
+            preds = predict(X, w, b, activity)
             capture()
 
         for i, j in zip(ls(w[0], 0.5, 15), ls(w[1], -1.5, 15)):
             w[0] = i
             w[1] = j
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
-        for i in ease_in(ls(1, 0, 5)):
-            planarity = i
-            preds = predict(X, w, b, planarity)
+        for i in ease_in(ls(0, 1, 5)):
+            activity = i
+            preds = predict(X, w, b, activity)
             capture()
 
         for i, j in zip(ls(w[0], 1.5, 15), ls(w[1], -0.5, 15)):
             w[0] = i
             w[1] = j
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         for i, j in zip(ls(w[0], 0.5, 15), ls(w[0][1], -1.5, 15)):
             w[0] = i
             w[1] = j
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         for eye_x, eye_y, eye_z, ax, ay, az in zip(
@@ -301,10 +301,10 @@ def get_animation(
             w[0] = i
             w[1] = j
             b[0] = k
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
-        planarity = 1
+        activity = 0
 
     # Amplifying the bias when there is no tilt shifts the plane up and down. when the plane has a tilt the bias shifts the plane in the direction of the tilt.
     # So the weights angle and tilt, and the bias centers it all.
@@ -313,35 +313,35 @@ def get_animation(
 
         for i in ls(b, 0.9, 10):
             b = i
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         for i in ls(b, 0.1, 10):
             b = i
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         for i, j in zip(ls(w[0], 0.5, 10), ls(w[1], -0.5, 10)):
             w[0] = i
             w[1] = j
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         capture(5)
 
         for i in ls(b, 5, 10):
             b = i
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         for i in ls(b, -5, 10):
             b = i
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         capture(10)
 
-        planarity = 0
+        activity = 1
 
         b = 0.5
 
@@ -349,13 +349,13 @@ def get_animation(
         for i, j in zip(ls(w[0], 1, 7), ls(w[1], -2, 7)):
             w[0] = i
             w[1] = j
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         for i, j in zip(ls(w[0], 2, 7), ls(w[1], -1, 7)):
             w[0] = i
             w[1] = j
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         capture(5)
@@ -364,12 +364,12 @@ def get_animation(
 
         for i in ls(b, 5, 7):
             b = i
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         for i in ls(b, -5, 7):
             b = i
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
         capture(5)
@@ -378,10 +378,10 @@ def get_animation(
             w[0] = i
             w[1] = j
             b = k
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
-        planarity = 1
+        activity = 0
 
         capture(5)
 
@@ -432,8 +432,8 @@ def get_animation(
                 focused_errors = [[i]]
                 capture()
 
-            for i in ease_out(ls(0, 1, 3)):
-                planarity = i
+            for i in ease_out(ls(1, 0, 3)):
+                activity = i
                 capture()
 
             focused_preds = None
@@ -453,11 +453,11 @@ def get_animation(
 
             capture(5)
 
-            for i in ease_in(ls(1, 0, 3)):
-                planarity = i
+            for i in ease_in(ls(0, 1, 3)):
+                activity = i
                 capture()
 
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
 
             focus_labels = False
 
@@ -466,7 +466,7 @@ def get_animation(
         for _ in range(epochs - show_epochs):
             w -= learning_rate * ((1 / m) * ((preds - targets) @ X))
             b -= learning_rate * ((1 / m) * torch.sum(preds - targets))
-            preds = predict(X, w, b, planarity)
+            preds = predict(X, w, b, activity)
             capture()
 
     # Now let's make a prediction. the points on the upper half are classified as 1 and the below half, 0.
@@ -474,8 +474,8 @@ def get_animation(
     if "inference" in chapters:
         w = final_w.clone()
         b = final_b.clone()
-        planarity = 0
-        preds = predict(X, w, b, planarity)
+        activity = 1
+        preds = predict(X, w, b, activity)
 
         eye = final_eye
         aspect_ratio = final_aspect_ratio
