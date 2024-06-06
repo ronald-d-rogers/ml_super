@@ -1,3 +1,4 @@
+from copy import deepcopy
 import torch
 import numpy as np
 
@@ -39,3 +40,21 @@ def hex_to_rgb(color):
 
 def rgb_to_str(color):
     return f"rgb{color}"
+
+
+# if there are any tensors do a .clone
+# if there are any lists do a .deepcopy
+def clone(module: dict):
+    if module is None:
+        return None
+
+    if isinstance(module, torch.Tensor):
+        return module.clone()
+
+    if isinstance(module, list):
+        return deepcopy(module)
+
+    return {
+        k: v.clone() if isinstance(v, torch.Tensor) else deepcopy(v) if isinstance(v, list) else v
+        for k, v in module.items()
+    }

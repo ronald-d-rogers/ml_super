@@ -1,31 +1,17 @@
 import torch
 
-from base import Frame, focusable_feature_colors
+from base import focusable_feature_colors
 from themes import default_theme
 
 
-def loss_annotations(frame: Frame, visible=True):
-    if not visible:
+def loss_annotations(X, targets, preds, focused_errors, show=True):
+    if not show or not focused_errors:
         return []
-
-    X = frame.X
-    targets = frame.targets[0]
-    preds = frame.preds[0]
-
-    m = X.shape[0]
-
-    focused_inputs = frame.focused_inputs
-
-    if not frame.focused_inputs:
-        focused_inputs = range(m)
-
-    if isinstance(frame.focused_inputs, int):
-        focused_inputs = [frame.focused_inputs]
 
     # use pred for z if target is 0 else use target
     z = [pred if t == 0 else t for t, pred in zip(targets, preds)]
 
-    test = [
+    return [
         dict(
             x=X[:, 0][i],
             y=X[:, 1][i],
@@ -39,49 +25,34 @@ def loss_annotations(frame: Frame, visible=True):
             showarrow=False,
         )
         for i, pred in enumerate(preds)
-        if i in focused_inputs
+        if i in focused_errors
     ]
-
-    return test
 
 
 def feature_annotations(
-    frame: Frame,
+    X,
+    preds,
+    targets,
+    focused_feature=None,
     feature_colors=None,
-    visible=False,
+    show=False,
     theme=default_theme,
 ):
-    if not visible:
+    if not show:
         return []
-
-    focused_feature = frame.focused_feature
 
     if feature_colors is None:
         feature_colors = theme.feature_colors
 
-    X = frame.X
-    preds = frame.preds[0]
-    targets = frame.targets[0]
+    m = X.size(0)
 
-    m = X.shape[0]
-
-    focused_inputs = frame.focused_inputs
-
-    if not frame.focused_inputs:
-        focused_inputs = range(m)
-
-    annotations = []
-
-    z = [pred if t == 0 else t for t, pred in zip(targets, preds)]
-
-    def annotation(i, t, x, y, z):
+    def annotate(i, t, x, y, z):
         return dict(
             x=x,
             y=y,
             z=z,
             yshift=40,
             text=f"<b>{targets[i] - preds[i]:1.2f}({float(X[i, t]):1.2f})</b>",
-            # startstandoff=40,
             bgcolor=feature_colors[t],
             bordercolor="rgba(0,0,0,.8)",
             align="center",
@@ -89,26 +60,25 @@ def feature_annotations(
             showarrow=False,
         )
 
-    for i in focused_inputs:
+    annotations = []
+    z = [pred if t == 0 else t for t, pred in zip(targets, preds)]
+    for i in range(m):
         if focused_feature in (None, 0):
-            note = annotation(i, 0, X[:, 0][i], X[:, 1][i], z[i])
+            note = annotate(i, 0, X[:, 0][i], X[:, 1][i], z[i])
 
         if focused_feature in (None, 1):
-            note = annotation(i, 1, X[:, 0][i], X[:, 1][i], z[i])
+            note = annotate(i, 1, X[:, 0][i], X[:, 1][i], z[i])
 
         annotations.append(note)
 
     return annotations
 
 
-def inference_annotation(frame: Frame, visible=True):
-    if not visible:
+def inference_annotation(w, b, inference, show=True):
+    if not show:
         return []
 
-    w, b = frame.w, frame.b
-    inference = frame.inference
-
-    if frame.inference is None:
+    if inference is None:
         return []
 
     pred = torch.sigmoid((inference @ w.T) + b).item()
@@ -133,14 +103,11 @@ def weight_annotations(
     height,
     focused_feature,
     focus_labels,
-    visible=True,
+    show=True,
     theme=default_theme,
 ):
-    if not visible:
+    if not show:
         return []
-
-    w = w[0]
-    b = b[0]
 
     if focus_labels:
         feature_colors = theme.focused_feature_colors

@@ -1,0 +1,129 @@
+from base import Animation, Frame, View
+
+
+import plotly.graph_objects as go
+import torch
+
+
+def cost_tables(
+    view: View,
+    frame: Frame,
+    animation: Animation,
+    meta=None,
+):
+    X = frame.X
+    m = X.size(0)
+    preds = view.preds
+    targets = view.targets
+    focus_costs = frame.focus_costs
+    lr = frame.learning_rate
+    class_colors = animation.theme.class_colors
+
+    focused_preds = view.focused_preds
+    feature_colors = animation.focusable_feature_colors(frame.focused_feature)
+
+    X = X[focused_preds]
+    targets = targets[focused_preds]
+    preds = preds[focused_preds]
+
+    m = X.size(0)
+
+    errors = targets - preds
+    loss = torch.stack((errors * X[:, 0], errors * X[:, 1]), dim=0)
+    total_loss = torch.sum(loss, dim=1)
+
+    font_size = 30
+
+    header = dict(
+        values=[
+            "",
+            "<b>error * x</b>",
+            "<b>= loss<sup>1</sup><sub>i</sub></b>",
+            "<b>error * y</b>",
+            "<b>= loss<sup>2</sup><sub>i<sub></b>",
+        ],
+        line=dict(width=2),
+        font=dict(size=font_size, color=["black", "black", "black", "black", "black"]),
+        fill_color=["white", feature_colors[0], "white", feature_colors[1], "white"],
+    )
+
+    cols = [
+        [f"<b>x<sub>{i}</sub><b>" for i in range(1, m + 1)] + ["<b>∑</b>"],
+        [f"<b>{e:.2f} * {x:0.2f}</b>" for e, x in torch.stack((errors, X[:, 0]), dim=1)],
+        [f"= <b>{l:.2f}</b>" for l in loss[0]] + [f"= <b>{total_loss[0]:.3f}</b>"],
+        [f"<b>{e:.2f} * {y:0.2f}</b>" for e, y in torch.stack((errors, X[:, 1]), dim=1)],
+        [f"= <b>{l:.2f}</b>" for l in loss[1]] + [f"= <b>{total_loss[1]:.3f}</b>"],
+    ]
+
+    cells = dict(
+        values=cols,
+        font=dict(
+            size=font_size,
+            color=[
+                ["black"] * (len(cols[0]) - 1) + ["white"],
+                ["black"] * len(cols[1]),
+                ["black"] * (len(cols[2]) - 1) + ["white"],
+                ["black"] * len(cols[3]),
+                ["black"] * (len(cols[4]) - 1) + ["white"],
+            ],
+        ),
+        line=dict(width=2),
+        fill_color=[
+            [class_colors[bool(t > 0.5)] for t in targets] + ["black"],
+            [feature_colors[0]] * len(cols[1]) + ["black"],
+            ["white"] * (len(cols[2]) - 1) + ["black"],
+            [feature_colors[1]] * len(cols[3]) + ["black"],
+            ["white"] * (len(cols[4]) - 1) + ["black"],
+        ],
+    )
+
+    align = ["center", "center", "left", "center", "left"]
+
+    loss_table = go.Table(
+        header=dict(**header, align=align, height=50),
+        cells=dict(**cells, align=align, height=50),
+        columnorder=[0, 1, 2, 3, 4],
+        columnwidth=[0.6, 2, 1.4, 2, 1.4],
+        meta=meta[0],
+    )
+
+    header = dict(
+        values=[
+            "<b>1/m</b> * <b>lr</b> * <b>cost<sub>1</sub></b>",
+            "= <b>-Δw<sub>1</sub></b>",
+            "<b>1/m</b> * <b>lr</b> * <b>cost<sub>2</sub></b>",
+            "= <b>-Δw<sub>2</sub></b>",
+        ],
+        font=dict(size=font_size, color=["black"] * 4),
+        line=dict(width=2),
+        fill_color=[feature_colors[0], "white", feature_colors[1], "white"],
+    )
+
+    cells = dict(
+        values=[
+            f"<b>1/{m} * {lr} * {total_loss[0]:.3f}</b>",
+            f"= <b>{(1/m) * lr * total_loss[0]:.3f}</b>",
+            f"<b>1/{m} * {lr} * {total_loss[1]:.3f}</b>",
+            f"= <b>{(1/m) * lr * total_loss[1]:.3f}</b>",
+        ],
+        font=dict(size=font_size, color=["black", "white", "black", "white"]),
+        line=dict(width=2),
+        fill_color=[
+            feature_colors[0],
+            "grey" if focus_costs else "black",
+            feature_colors[1],
+            "grey" if focus_costs else "black",
+        ],
+    )
+
+    align = ["center", "left", "center", "left"]
+
+    cost_table = go.Table(
+        header=dict(**header, align=align, height=44),
+        cells=dict(**cells, align=align, height=44),
+        columnorder=[0, 1, 2, 3],
+        columnwidth=[3, 1.2, 3, 1.2],
+        meta=meta[1],
+    )
+
+    return [loss_table, cost_table]
