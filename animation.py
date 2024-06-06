@@ -40,6 +40,7 @@ def scene_traces(
             targets=view.targets,
             inference=frame.inference,
             focused_feature=focused_feature,
+            focused_errors=view.focused_errors,
             marker_size=marker_size,
             meta=meta,
             theme=theme,
@@ -303,6 +304,9 @@ def animate(
             specs.append([dict(type="scene", colspan=3), None, None])
             specs.append([dict(type="scene"), dict(type="scene"), dict(type="scene")])
 
+        if not show_model:
+            row_count += 1
+
         row_count += 1
 
         views["component1"] = dict(
@@ -328,9 +332,6 @@ def animate(
             col=3,
             height=components_height,
         )
-
-        if not show_model:
-            row_count += 1
 
     if show_tables:
         stage_heights["tables"] = losses_height + costs_height
@@ -402,6 +403,7 @@ def animate(
     )
 
     frame = frames[0]
+    view = animation.node_view(frame)
 
     # model_node = animation.node_view(frame)
 
@@ -451,7 +453,7 @@ def animate(
     if show_components:
         zoom = 3
 
-        weight_eyes = frame.get_weight_eyes()
+        weight_eyes = view.get_weight_eyes()
         bias_eye = frame.get_bias_eye()
 
         fig.layout.scene2.update(

@@ -13,9 +13,9 @@ def ease_in(x):
 
 def orbit(point, center, theta):
     p1 = torch.sub(point, center)
-    p2 = torch.Tensor([[np.cos(theta), np.sin(theta)]])
-    p1 = p1[0]
-    p2 = p2[0]
+    p2 = torch.Tensor([np.cos(theta), np.sin(theta)])
+    p1 = p1
+    p2 = p2
     return torch.Tensor([p1[0] * p2[0] - p1[1] * p2[1], p1[0] * p2[1] + p1[1] * p2[0]]).add(center)
 
 

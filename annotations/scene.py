@@ -85,8 +85,8 @@ def inference_annotation(w, b, inference, show=True):
     text = f"<b>{pred:.2f} {'>' if pred > 0.5 else '<'} 0.5</b>"
     return [
         dict(
-            x=inference[0][0],
-            y=inference[0][1],
+            x=inference[0],
+            y=inference[1],
             z=pred,
             yshift=40,
             bgcolor="rgba(255,255,255,.8)",

@@ -26,7 +26,7 @@ def get_animation(
     )
 
     X = torch.Tensor(X)
-    targets = torch.Tensor([targets])
+    targets = torch.Tensor(targets)
 
     m = X.size(0)
     w = torch.Tensor([0, 0])
@@ -67,9 +67,9 @@ def get_animation(
         frame = Frame(
             X=X,
             preds={"output": preds.unsqueeze(0)},
-            targets=targets,
+            targets=targets.unsqueeze(0),
             w={"output": w.clone().unsqueeze(0)},
-            b={"output": torch.Tensor([b])},
+            b={"output": torch.Tensor([[b]])},
             epochs=epochs,
             learning_rate=learning_rate,
             size={"input": 2, "output": 1},
@@ -426,10 +426,10 @@ def get_animation(
         for i in range(show_epochs):
             focus_costs = False
 
-            focused_preds = [[]]
+            focused_preds = []
             for i in range(m):
-                focused_preds[0].append(i)
-                focused_errors = [[i]]
+                focused_preds.append(i)
+                focused_errors = [i]
                 capture()
 
             for i in ease_out(ls(1, 0, 3)):
@@ -486,7 +486,7 @@ def get_animation(
         capture(5)
 
         inference = torch.Tensor([1, 1])
-        center = torch.Tensor([[-b, b]])
+        center = torch.Tensor([-b, b])
         for _ in range(30):
             inference = orbit(inference, center, np.pi / 15)
             capture()

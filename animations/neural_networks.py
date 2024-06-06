@@ -112,11 +112,7 @@ def get_animation(
     focused_targets = [[] for _ in range(size["output"])]
     focused_preds = {"output": [[] for _ in range(size["output"])], "hidden": [[] for _ in range(size["hidden"])]}
     focused_errors = {"output": [[] for _ in range(size["output"])], "hidden": [[] for _ in range(size["hidden"])]}
-    focused_losses = {
-        "output": [[] for _ in range(size["output"])],
-        "hidden": [[] for _ in range(size["hidden"])],
-        "input": [[] for _ in range(size["input"])],
-    }
+    focused_losses = {"hidden": [[] for _ in range(size["hidden"])], "input": [[] for _ in range(size["input"])]}
 
     activity = 1
     focused_feature = None
