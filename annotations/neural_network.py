@@ -125,14 +125,14 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
 
         input_xshift += width + (border_width * 2)
 
-    if any(x for x in focused_losses["hidden"]):
+    if any(x for x in focused_losses["input"]):
         input_xshift -= ((width + (border_width * 2)) * 3) / 2
         input_xshift -= ((operator_width + (border_width * 2)) * 2) / 2
 
         annotate_nodes(
             node_points["input"],
             errors["hidden"][focused_node["hidden"]].unsqueeze(0).expand((size["hidden"], m)),
-            focused_losses["hidden"],
+            focused_losses["input"],
             width,
             input_xshift,
             input_yshift,
@@ -145,7 +145,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["input"],
             "*",
-            focused_losses["hidden"],
+            focused_losses["input"],
             operator_width,
             input_xshift,
             input_yshift,
@@ -158,7 +158,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["input"],
             X.T,
-            focused_losses["hidden"],
+            focused_losses["input"],
             width,
             input_xshift,
             input_yshift,
@@ -171,7 +171,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["input"],
             "=",
-            focused_losses["hidden"],
+            focused_losses["input"],
             operator_width,
             input_xshift,
             input_yshift,
@@ -184,7 +184,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["input"],
             losses["hidden"],
-            focused_losses["hidden"],
+            focused_losses["input"],
             width,
             input_xshift,
             input_yshift,
@@ -239,14 +239,14 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
 
         hidden_x_xshift += width + (border_width * 2)
 
-    if any(x for x in focused_losses):
+    if any(x for x in focused_losses["hidden"]):
         hidden_x_xshift -= ((width + (border_width * 2)) * 3) / 2
         hidden_x_xshift -= ((operator_width + (border_width * 2)) * 2) / 2
 
         annotate_nodes(
             node_points["hidden"],
-            errors[focused_node["output"]].unsqueeze(0).expand((size["hidden"], m)),
-            focused_losses,
+            errors["output"][focused_node["output"]].unsqueeze(0).expand((size["hidden"], m)),
+            focused_losses["hidden"],
             width,
             hidden_x_xshift,
             hidden_x_yshift,
@@ -259,7 +259,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["hidden"],
             "*",
-            focused_losses,
+            focused_losses["hidden"],
             operator_width,
             hidden_x_xshift,
             hidden_x_yshift,
@@ -272,7 +272,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["hidden"],
             preds["hidden"],
-            focused_losses,
+            focused_losses["hidden"],
             width,
             hidden_x_xshift,
             hidden_x_yshift,
@@ -285,7 +285,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["hidden"],
             "=",
-            focused_losses,
+            focused_losses["hidden"],
             operator_width,
             hidden_x_xshift,
             hidden_x_yshift,
@@ -297,8 +297,8 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
 
         annotate_nodes(
             node_points["hidden"],
-            losses,
-            focused_losses,
+            losses["output"],
+            focused_losses["hidden"],
             width,
             hidden_x_xshift,
             hidden_x_yshift,
@@ -312,7 +312,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
 
         annotate_nodes(
             node_points["hidden"],
-            errors[focused_node["output"]].unsqueeze(0).expand((size["hidden"], m)),
+            errors["output"][focused_node["output"]].unsqueeze(0).expand((size["hidden"], m)),
             focused_errors["hidden"],
             width,
             hidden_x_xshift,
@@ -340,7 +340,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
             if len(indices):
                 annotate_value(
                     node_points["hidden"][i],
-                    w[focused_node["output"]][i],
+                    w["output"][focused_node["output"]][i],
                     0,
                     1,
                     width,
@@ -417,7 +417,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
     for i in range(size["output"]):
         output_cost_xshift = -((((width + (border_width * 2)) * size["hidden"]) + ((size["hidden"] - 1) * 20)) / 2)
         for j in range(size["hidden"]):
-            cost = costs[i][j]
+            cost = costs["output"][i][j]
 
             annotate_value(
                 node_points["output"][i],
@@ -436,7 +436,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
     output_x_yshift += output_cost_yshift + 20
     output_x_yshift -= x_yshift
 
-    if any(x for x in focused_targets):
+    if any(focused_targets):
         output_x_xshift -= (width + (border_width * 2)) / 2
 
         annotate_nodes(
@@ -450,13 +450,13 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
             target_text_color,
         )
 
-    if any(x for x in focused_preds):
+    if any(x for x in focused_preds["output"]):
         output_x_xshift -= (width + (border_width * 2)) / 2
 
         annotate_nodes(
             node_points["output"],
-            preds,
-            focused_preds,
+            preds["output"],
+            focused_preds["output"],
             width,
             output_x_xshift,
             output_x_yshift,
@@ -464,14 +464,14 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
             "black",
         )
 
-    if any(x for x in focused_errors):
+    if any(x for x in focused_errors["output"]):
         output_x_xshift -= ((width + (border_width * 2)) * 3) / 2
         output_x_xshift -= ((operator_width + (border_width * 2)) * 2) / 2
 
         annotate_nodes(
             node_points["output"],
-            preds,
-            focused_errors,
+            preds["output"],
+            focused_errors["output"],
             width,
             output_x_xshift,
             output_x_yshift,
@@ -484,7 +484,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["output"],
             "-",
-            focused_errors,
+            focused_errors["output"],
             operator_width,
             output_x_xshift,
             output_x_yshift,
@@ -497,7 +497,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["output"],
             targets,
-            focused_errors,
+            focused_errors["output"],
             width,
             output_x_xshift,
             output_x_yshift,
@@ -510,7 +510,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
         annotate_nodes(
             node_points["output"],
             "=",
-            focused_errors,
+            focused_errors["output"],
             operator_width,
             output_x_xshift,
             output_x_yshift,
@@ -522,8 +522,8 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
 
         annotate_nodes(
             node_points["output"],
-            errors[focused_node["hidden"]].unsqueeze(0).expand((size["hidden"], m)),
-            focused_errors,
+            errors["hidden"][focused_node["hidden"]].unsqueeze(0).expand((size["hidden"], m)),
+            focused_errors["output"],
             width,
             output_x_xshift,
             output_x_yshift,

@@ -1,4 +1,3 @@
-import torch
 import os
 
 from plotly.subplots import make_subplots
@@ -255,13 +254,13 @@ def animate(
     model_node="output_1",
     show_model=True,
     show_components=True,
-    show_tables=True,
-    show_network=True,
+    show_tables=False,
+    show_network=False,
     scale=2,
-    render=None,
+    render_path=None,
     theme=default_theme,
 ):
-    meta = {}
+    views = {}
     specs = []
 
     height = 0
@@ -269,61 +268,79 @@ def animate(
 
     row_count = 0
     row_heights = []
+    stage_heights = {}
+
+    model_height = 768
+    components_height = 250
+    losses_height = 768
+    costs_height = 128
+    network_height = 1152
 
     if show_model:
-        model_height = 768
+        if "model" not in stage_heights:
+            stage_heights["model"] = model_height + components_height
+            row_heights.extend([model_height, components_height])
+            specs.append([dict(type="scene", colspan=3), None, None])
+            specs.append([dict(type="scene"), dict(type="scene"), dict(type="scene")])
 
         row_count += 1
 
-        meta["model"] = dict(
+        views["model"] = dict(
             name="model",
+            stage="model",
             row=row_count,
             col=1,
             height=768,
         )
 
-        height += model_height
-        row_heights.append(model_height)
-        specs.append([dict(type="scene", colspan=3), None, None])
+        if not show_components:
+            row_count += 1
 
     if show_components:
-        components_height = 250
+        if "model" not in stage_heights:
+            stage_heights["model"] = model_height + components_height
+            row_heights.extend([model_height, components_height])
+            specs.append([dict(type="scene", colspan=3), None, None])
+            specs.append([dict(type="scene"), dict(type="scene"), dict(type="scene")])
 
         row_count += 1
 
-        meta["component1"] = dict(
+        views["component1"] = dict(
             name="component1",
+            stage="model",
             row=row_count,
             col=1,
             height=components_height,
         )
 
-        meta["component2"] = dict(
+        views["component2"] = dict(
             name="component2",
+            stage="model",
             row=row_count,
             col=2,
             height=components_height,
         )
 
-        meta["component3"] = dict(
+        views["component3"] = dict(
             name="component3",
+            stage="model",
             row=row_count,
             col=3,
             height=components_height,
         )
 
-        height += components_height
-        row_heights.append(components_height)
-        specs.append([dict(type="scene"), dict(type="scene"), dict(type="scene")])
+        if not show_model:
+            row_count += 1
 
     if show_tables:
-        losses_height = 768
-        costs_height = 128
+        stage_heights["tables"] = losses_height + costs_height
+        row_heights.extend([losses_height, costs_height])
 
         row_count += 1
 
-        meta["losses"] = dict(
+        views["losses"] = dict(
             name="losses",
+            stage="tables",
             row=row_count,
             col=1,
             height=losses_height,
@@ -331,8 +348,9 @@ def animate(
 
         row_count += 1
 
-        meta["cost"] = dict(
+        views["cost"] = dict(
             name="cost",
+            stage="tables",
             row=row_count,
             col=1,
             height=costs_height,
@@ -340,35 +358,36 @@ def animate(
 
         height += losses_height + costs_height
 
-        row_heights.extend([losses_height, costs_height])
         specs.append([dict(type="table", colspan=3), None, None])
         specs.append([dict(type="table", colspan=3), None, None])
 
     if show_network:
-        network_height = 1152
+        stage_heights["network"] = network_height
+        row_heights.append(network_height)
 
         row_count += 1
 
-        meta["network"] = dict(
+        views["network"] = dict(
             name="network",
+            stage="network",
             row=row_count,
             col=1,
             height=network_height,
         )
 
-        height += network_height
-        row_heights.append(network_height)
         specs.append([dict(type="scatter", colspan=3), None, None])
+
+    height = sum(stage_heights.values())
 
     controls_height = 130
 
-    if not render:
+    if not render_path:
         height += controls_height
 
     animation = Animation(
         frames=frames,
         model_node=model_node,
-        render_path=render,
+        render_path=render_path,
         show_model=show_model,
         show_network=show_network,
         show_components=show_components,
@@ -379,7 +398,7 @@ def animate(
         line_width=10,
         scale=scale,
         theme=theme,
-        meta=meta,
+        meta=views,
     )
 
     frame = frames[0]
@@ -460,12 +479,12 @@ def animate(
         )
 
     def update_network():
-        view = meta["network"]
+        view = views["network"]
         fig.update_yaxes(range=[-2, 0], row=view["row"], col=view["col"])
         fig.update_xaxes(range=[-1.5, 1.5], row=view["row"], col=view["col"])
 
-    if render:
-        os.makedirs(render, exist_ok=True)
+    if render_path:
+        os.makedirs(render_path, exist_ok=True)
 
         frame = make_frame(frames[0], animation, name=0)
 
@@ -489,7 +508,7 @@ def animate(
 
             num = str(i).zfill(zlen)
 
-            fig.write_image(os.path.join(render, f"{num}.png"), format="png", scale=scale)
+            fig.write_image(os.path.join(render_path, f"{num}.png"), format="png", scale=scale)
 
     else:
         frames = [make_frame(frame, animation, name=i) for i, frame in enumerate(frames)]

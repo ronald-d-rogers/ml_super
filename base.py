@@ -241,7 +241,7 @@ class Frame:
     w: Dict[str, torch.Tensor] = None
     b: Dict[str, torch.Tensor] = None
     size: Dict[str, int] = field(default_factory=lambda: {"input": 2, "hidden": 2, "output": 1})
-    layers: List[str] = field(default_factory=lambda: ["input", "hidden", "output"])
+    modules: List[str] = field(default_factory=lambda: ["input", "hidden", "output"])
     epochs: int = 30
     learning_rate: float = 0.5
     resolution: int = 30
@@ -276,7 +276,7 @@ class Frame:
     _surface_points: torch.Tensor = field(init=False, repr=False)
     _surface_line: torch.Tensor = field(init=False, repr=False)
     _size: Dict[str, int] = field(init=False, repr=False)
-    _node_points: Dict[str, Tuple[Tuple[float], ...]] = None
+    _node_points: Dict[str, Tuple[Tuple[float], ...]] = field(init=False, repr=False)
 
     @property
     def X(self) -> int:
@@ -306,12 +306,13 @@ class Frame:
         return self._surface_line
 
     @property
-    def node_points(self, module: str):
-        for i, module in enumerate(self.layers.reverse()):
-            size = self.size[module]
-            if self._node_points is None:
+    def node_points(self):
+        if self._node_points is None:
+            self._node_points = {}
+            for i, module in enumerate(reversed(self.modules)):
+                size = self.size[module]
                 input_xs = np.linspace(-1, 1, size) if size > 1 else [0]
-                input_ys = i * self.size
+                input_ys = [-i] * size
                 self._node_points[module] = list(zip(input_xs, input_ys))
 
         return self._node_points

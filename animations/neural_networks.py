@@ -61,17 +61,11 @@ def get_animation(
 
     torch.manual_seed(42)
 
-    preds = {"output": None, "hidden": None}
-    derivatives = {"output": None, "hidden": None}
-    errors = {"output": None, "hidden": None}
-    losses = {"output": None, "hidden": None}
-    costs = {"output": None, "hidden": None}
+    size = {"input": 2, "hidden": 2, "output": 1}
 
     xor_X = torch.Tensor([[0, 0], [0, 1], [1, 0], [1, 1]])
     xor_targets = torch.Tensor([[0, 1, 1, 0]])
     inference = None
-
-    size = {"input": 2, "hidden": 2, "output": 1}
 
     intial_eye = (1.2, -0.8, 1)
     initial_weight_eyes = ((1, -1, 0), (1, -1, 0))
@@ -102,14 +96,27 @@ def get_animation(
     # final_eye = (2, 0.64, 0)
     # final_aspect_ratio = tuple(x + 0.2 for x in aspect_ratio)
 
+    preds = {"output": None, "hidden": None}
+    derivatives = {"output": None, "hidden": None}
+    errors = {"output": None, "hidden": None}
+    losses = {"output": None, "hidden": None}
+    costs = {
+        "output": torch.zeros(size["output"], size["hidden"]),
+        "hidden": torch.zeros(size["hidden"], size["input"]),
+    }
+
     focused_node = {"input": None, "hidden": None, "output": None}
     focused_connections = {"input": [], "hidden": [], "output": []}
 
     focused_inputs = [[] for _ in range(size["input"])]
     focused_targets = [[] for _ in range(size["output"])]
-    focused_preds = {"output": [[]], "hidden": [[]]}
-    focused_errors = {"output": [[]], "hidden": [[]]}
-    focused_losses = {"output": [[]], "hidden": [[]]}
+    focused_preds = {"output": [[] for _ in range(size["output"])], "hidden": [[] for _ in range(size["hidden"])]}
+    focused_errors = {"output": [[] for _ in range(size["output"])], "hidden": [[] for _ in range(size["hidden"])]}
+    focused_losses = {
+        "output": [[] for _ in range(size["output"])],
+        "hidden": [[] for _ in range(size["hidden"])],
+        "input": [[] for _ in range(size["input"])],
+    }
 
     activity = 1
     focused_feature = None
@@ -173,10 +180,7 @@ def get_animation(
         derivatives["hidden"] = preds["hidden"] * (1 - preds["hidden"])
 
         errors["output"] = preds["output"] - targets
-        errors["hidden"] = (w.T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
-
-        costs = torch.zeros(size["output"], size["hidden"])
-        hidden_costs = torch.zeros(size["hidden"], size["input"])
+        errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
 
         weight_eyes = initial_weight_eyes
 
@@ -189,7 +193,7 @@ def get_animation(
                 focused_targets[j].append(i)
             capture()
 
-        focused_targets = None
+        focused_targets = [[] for _ in range(size["output"])]
 
         focused_connections["input"] = list(range(size["input"]))
 
@@ -225,7 +229,7 @@ def get_animation(
 
         focused_connections["hidden"] = []
 
-        focused_preds["output"] = None
+        focused_preds["output"] = [[] for _ in range(size["output"])]
 
         for i in range(m):
             for j in range(size["output"]):
@@ -233,9 +237,9 @@ def get_animation(
             capture()
 
         for i in range(size["output"]):
-            focused_node["output"] = 0
+            focused_node["output"] = i
 
-            losses = errors["output"][focused_node["output"]] * preds["hidden"]
+            losses["output"] = errors["output"][focused_node["output"]] * preds["hidden"]
 
             focused_connections["output"] = list(range(size["output"]))
 
@@ -246,7 +250,7 @@ def get_animation(
                         focused_connections["hidden"].append(ii)
                         capture()
                         focused_connections["hidden"].remove(ii)
-                    focused_losses["output"][k].append(j)
+                    focused_losses["hidden"][k].append(j)
                 capture()
 
             focused_connections["output"] = []
@@ -259,8 +263,8 @@ def get_animation(
                         focused_connections["output"].append(ii)
                         capture()
                         focused_connections["output"].remove(ii)
-                    focused_losses["output"][k].remove(j)
-                costs += losses["output"].T[j]
+                    focused_losses["hidden"][k].remove(j)
+                costs["output"] += losses["output"].T[j]
                 capture()
 
             focused_connections["hidden"] = []
@@ -274,7 +278,7 @@ def get_animation(
             for j in range(size["hidden"]):
                 focused_node["hidden"] = j
 
-                hidden_losses = errors["hidden"][focused_node["hidden"]] * X.T
+                losses["hidden"] = errors["hidden"][focused_node["hidden"]] * X.T
 
                 focused_connections["hidden"] = [focused_node["hidden"]]
 
@@ -285,7 +289,7 @@ def get_animation(
                             focused_connections["input"].append(ij)
                             capture()
                             focused_connections["input"].remove(ij)
-                        focused_losses["hidden"][ii].append(k)
+                        focused_losses["input"][ii].append(k)
                     capture()
 
                 focused_connections["hidden"] = []
@@ -297,8 +301,8 @@ def get_animation(
                         focused_connections["hidden"].append(focused_node["hidden"])
                         capture()
                         focused_connections["hidden"].remove(focused_node["hidden"])
-                        focused_losses["hidden"][ii].remove(k)
-                    hidden_costs[focused_node["hidden"]] += hidden_losses.T[k]
+                        focused_losses["input"][ii].remove(k)
+                    costs["hidden"][focused_node["hidden"]] += losses["hidden"].T[k]
                     capture()
 
                 focused_connections["input"] = []
