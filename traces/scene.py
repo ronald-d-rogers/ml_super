@@ -14,7 +14,7 @@ def loss_lines(X, preds, targs, opacity=1, line=None, visible=True, meta=None):
 
     xs, ys, zs = [], [], []
 
-    if X.size(0):
+    if X.size(0) and preds is not None and targs is not None:
         for x, y, p, t in torch.stack((X[:, 0], X[:, 1], preds, targs), dim=1):
             xs.extend([x, x, None])
             ys.extend([y, y, None])
@@ -38,7 +38,7 @@ def feature_lines(
     m = X.size(0)
     xs, ys, zs = [], [], []
 
-    if m:
+    if m and preds is not None and targs is not None:
         for x, y, p, t in torch.stack((X[:, 0], X[:, 1], preds, targs), dim=1):
             t = int(t)
             xs.extend([x, x if focused == 1 else 0, None])
@@ -63,21 +63,29 @@ def feature_lines(
 def target_markers(
     X, preds, targs, indices, focus=None, size=default_marker_size, standoff=None, meta=None, theme=default_theme
 ):
-    if focus:
-        marker_color = [theme.class_colors[bool(t > 0.5)] for t in targs]
-        textfont_color = "black"
+    m = X.size(0)
+    xs, ys, zs = [], [], []
+    marker_color = None
+    textfont_color = None
 
-    else:
-        # if pred close enough to target, marker_color is transparent, else black
-        marker_color = "rgba(0, 0, 0, 0)"
-        textfont_color = [
-            "white" if abs(t - p) > 0.25 else "rgba(0, 0, 0, 0)" for t, p in torch.stack((targs, preds), dim=1)
-        ]
+    if m and preds is not None and targs is not None:
+        xs, ys, zs = X[:, 0], X[:, 1], targs + standoff
+
+        if focus:
+            marker_color = [theme.class_colors[bool(t > 0.5)] for t in targs]
+            textfont_color = "black"
+
+        else:
+            # if pred close enough to target, marker_color is transparent, else black
+            marker_color = "rgba(0, 0, 0, 0)"
+            textfont_color = [
+                "white" if abs(t - p) > 0.25 else "rgba(0, 0, 0, 0)" for t, p in torch.stack((targs, preds), dim=1)
+            ]
 
     return go.Scatter3d(
-        x=X[:, 0],
-        y=X[:, 1],
-        z=targs + standoff,
+        x=xs,
+        y=ys,
+        z=zs,
         mode="markers+text",
         marker=dict(size=size, line=dict(color="white")),
         text=[f"x<sub>{i+1}</sub>" for i in indices],
@@ -101,8 +109,10 @@ def pred_markers(
     meta: dict = None,
     theme: Theme = default_theme,
 ):
-    if not visible:
+    if not visible or preds is None or targs is None:
         preds = torch.Tensor([])
+        targs = torch.Tensor([])
+        indices = []
 
     return go.Scatter3d(
         x=X[:, 0],

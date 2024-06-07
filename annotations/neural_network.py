@@ -297,7 +297,7 @@ def neural_network_annotations(frame: Frame, animation: Animation, show=True):
 
         annotate_nodes(
             node_points["hidden"],
-            losses["output"],
+            losses["output"][focused_node["output"]],
             focused_losses["hidden"],
             width,
             hidden_x_xshift,

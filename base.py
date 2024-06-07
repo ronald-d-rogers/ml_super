@@ -162,18 +162,26 @@ class Animation:
         w = {}
         b = {}
         if module == "output":
-            w["output"] = frame.w["output"][index].unsqueeze(0)
-            b["output"] = frame.b["output"][index].unsqueeze(0)
-            weight_eyes = neuron_weight_eyes
+            if "output" not in frame.w:
+                w = {"output": torch.zeros(1, frame.size["hidden"])}
+                b = {"output": torch.zeros(1, 1)}
+            else:
+                w["output"] = frame.w["output"][index].unsqueeze(0)
+                b["output"] = frame.b["output"][index].unsqueeze(0)
+                weight_eyes = neuron_weight_eyes
 
-            if "hidden" in frame.w:
-                w["hidden"] = frame.w["hidden"]
-                b["hidden"] = frame.b["hidden"]
-                weight_eyes = perceptron_weight_eyes
+                if "hidden" in frame.w:
+                    w["hidden"] = frame.w["hidden"]
+                    b["hidden"] = frame.b["hidden"]
+                    weight_eyes = perceptron_weight_eyes
 
         elif module == "hidden":
-            w = {"output": frame.w["hidden"][index].unsqueeze(0)}
-            b = {"output": frame.b["hidden"][index].unsqueeze(0)}
+            if "hidden" not in frame.w:
+                w = {"output": torch.zeros(1, frame.size["input"])}
+                b = {"output": torch.zeros(1, 1)}
+            else:
+                w = {"output": frame.w["hidden"][index].unsqueeze(0)}
+                b = {"output": frame.b["hidden"][index].unsqueeze(0)}
             weight_eyes = neuron_weight_eyes
 
         else:

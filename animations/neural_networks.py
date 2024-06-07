@@ -99,7 +99,7 @@ def get_animation(
     preds = {"output": None, "hidden": None}
     derivatives = {"output": None, "hidden": None}
     errors = {"output": None, "hidden": None}
-    losses = {"output": None, "hidden": None}
+    losses = {"output": [[] for _ in range(size["output"])], "hidden": [[] for _ in range(size["hidden"])]}
     costs = {
         "output": torch.zeros(size["output"], size["hidden"]),
         "hidden": torch.zeros(size["hidden"], size["input"]),
@@ -140,7 +140,11 @@ def get_animation(
             preds["output"] = predict(X, w["output"], b["output"])
             capture()
 
+        focused_errors["output"] = [list(range(m)) for _ in range(size["output"])]
+
         capture(10)
+
+        focused_errors["output"] = [[] for _ in range(size["output"])]
 
     if "xor" in chapters:
         X = xor_X
@@ -182,6 +186,9 @@ def get_animation(
 
         capture()
 
+        # show forward propagation
+
+        # focus inputs and targets one by one
         for i in range(m):
             for j in range(size["input"]):
                 focused_inputs[j].append(i)
@@ -193,10 +200,12 @@ def get_animation(
 
         focused_connections["input"] = list(range(size["input"]))
 
+        # focus hidden predictions one by one
         for i in range(m):
             for j in range(size["input"]):
                 focused_inputs[j].remove(i)
 
+            # focus input to hidden connections before showing each hidden prediction
             for j in range(size["hidden"]):
                 focused_connections["hidden"].append(j)
                 capture()
@@ -210,10 +219,12 @@ def get_animation(
 
         focused_connections["hidden"] = list(range(size["hidden"]))
 
+        # focus output predictions one by one
         for i in range(m):
             for j in range(size["hidden"]):
                 focused_preds["hidden"][j].remove(i)
 
+            # focus hidden to output connections before showing each output prediction
             for j in range(size["output"]):
                 focused_connections["output"].append(j)
                 capture()
@@ -227,21 +238,27 @@ def get_animation(
 
         focused_preds["output"] = [[] for _ in range(size["output"])]
 
+        # show backpropagation
+
+        # focus output errors one by one
         for i in range(m):
             for j in range(size["output"]):
                 focused_errors["output"][j].append(i)
             capture()
 
+        # for each output node, show it's contribution to the loss
         for i in range(size["output"]):
             focused_node["output"] = i
 
-            losses["output"] = errors["output"][focused_node["output"]] * preds["hidden"]
+            losses["output"][focused_node["output"]] = errors["output"][focused_node["output"]] * preds["hidden"]
 
             focused_connections["output"] = list(range(size["output"]))
 
+            # focus hidden errors one by one
             for j in range(m):
                 focused_errors["output"][i].remove(j)
                 for k in range(size["hidden"]):
+                    # focus output to hidden connections before showing each hidden error
                     for ii in range(size["hidden"]):
                         focused_connections["hidden"].append(ii)
                         capture()
@@ -253,24 +270,29 @@ def get_animation(
 
             focused_connections["hidden"] = list(range(size["hidden"]))
 
+            # update current output node's cost(s) one by one
             for j in range(m):
                 for k in range(size["hidden"]):
+                    # focus hidden to output connections before updating each data point's contribution
                     for ii in range(size["output"]):
                         focused_connections["output"].append(ii)
                         capture()
                         focused_connections["output"].remove(ii)
                     focused_losses["hidden"][k].remove(j)
-                costs["output"] += losses["output"].T[j]
+                # update the output cost
+                costs["output"][focused_node["output"]] += losses["output"][focused_node["output"]].T[j]
                 capture()
 
             focused_connections["hidden"] = []
 
+            # focus hidden errors one by one again
             for j in range(m):
                 for k in range(size["hidden"]):
                     capture()
                     focused_errors["hidden"][k].append(j)
                 capture()
 
+            # for each hidden node, show it's contribution to the loss
             for j in range(size["hidden"]):
                 focused_node["hidden"] = j
 
@@ -278,9 +300,11 @@ def get_animation(
 
                 focused_connections["hidden"] = [focused_node["hidden"]]
 
+                # focus input losses one by one
                 for k in range(m):
                     focused_errors["hidden"][j].remove(k)
                     for ii in range(size["input"]):
+                        # focus hidden to input connections before showing each input loss
                         for ij in range(size["input"]):
                             focused_connections["input"].append(ij)
                             capture()
@@ -292,8 +316,10 @@ def get_animation(
 
                 focused_connections["input"] = list(range(size["input"]))
 
+                # update current hidden node's cost(s) one by one
                 for k in range(m):
                     for ii in range(size["input"]):
+                        # focus input to hidden connections before updating each data point's contribution
                         focused_connections["hidden"].append(focused_node["hidden"])
                         capture()
                         focused_connections["hidden"].remove(focused_node["hidden"])
@@ -343,6 +369,7 @@ def get_animation(
             if i % count == remainder:
                 capture()
 
+    # show the effect of changing weights and biases in a trained neural network
     if "weights" in chapters:
         X = xor_X
         targets = xor_targets
@@ -358,6 +385,7 @@ def get_animation(
 
         eye = None
 
+        # set all output weights to 0
         for i, j, k in zip(
             ls(final_w["output"][0][0], 0, 10), ls(final_w["output"][0][1], 0, 10), ls(final_b["output"][0][0], 0, 10)
         ):
@@ -368,12 +396,14 @@ def get_animation(
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
+        # lift weight 1 up to 10
         for i in ls(0, 10, 10):
             w["output"][0][0] = i
             preds["hidden"] = predict(X, w["hidden"], b["hidden"])
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
+        # bring weight 1 down to -10
         for i in ls(10, -10, 20):
             w["output"][0][0] = i
             preds["hidden"] = predict(X, w["hidden"], b["hidden"])
@@ -382,18 +412,21 @@ def get_animation(
 
         capture(10)
 
+        # reset weight 1 to 0
         for i in ls(-10, 0, 10):
             w["output"][0][0] = i
             preds["hidden"] = predict(X, w["hidden"], b["hidden"])
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
+        # lift weight 1 up to 10
         for i in ls(0, 10, 10):
             w["output"][0][1] = i
             preds["hidden"] = predict(X, w["hidden"], b["hidden"])
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
+        # bring weight 1 down to -10
         for i in ls(10, -10, 20):
             w["output"][0][1] = i
             preds["hidden"] = predict(X, w["hidden"], b["hidden"])
@@ -402,7 +435,7 @@ def get_animation(
 
         capture(10)
 
-        # everything back to 0 from their current values
+        # reset all output weights to 0
         for i, j, k in zip(ls(w["output"][0][0], 0, 10), ls(w["output"][0][1], 0, 10), ls(b["output"][0][0], 0, 10)):
             w["output"][0][0] = i
             w["output"][0][1] = j
@@ -411,7 +444,7 @@ def get_animation(
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
-        # lift down weight 0 to -10
+        # bring down weight 0 to -10
         for i in ls(0, -10, 10):
             w["output"][0][0] = i
             preds["hidden"] = predict(X, w["hidden"], b["hidden"])
@@ -427,6 +460,7 @@ def get_animation(
 
         capture(5)
 
+        # bring down bias to -5 to show a fit model
         for i in ls(0, -5, 10):
             b["output"][0][0] = i
             preds["hidden"] = predict(X, w["hidden"], b["hidden"])
