@@ -208,8 +208,8 @@ def make_frame(frame: Frame, animation: Animation, name: str):
                 xaxis_title="",
                 yaxis_title="",
                 zaxis_title="",
-                xaxis=dict(backgroundcolor=feature_colors[1]),
-                yaxis=dict(backgroundcolor=feature_colors[0]),
+                xaxis=dict(backgroundcolor=feature_colors[1], range=frame.get_range(dim=0, pad=True)),
+                yaxis=dict(backgroundcolor=feature_colors[0], range=frame.get_range(dim=1, pad=True)),
                 zaxis=dict(range=frame.get_zrange(pad=True)),
                 annotations=[
                     *inference_annotation(w=w, b=b, inference=frame.inference, show=animation.show_model),
@@ -234,17 +234,18 @@ def make_frame(frame: Frame, animation: Animation, name: str):
             scene2=dict(
                 camera=dict(eye=weight_eyes[0]),
                 xaxis=dict(backgroundcolor=feature_colors[1]),
-                yaxis=dict(backgroundcolor=feature_colors[0]),
+                yaxis=dict(backgroundcolor=feature_colors[0], range=frame.get_range(dim=1, pad=True)),
             ),
             scene3=dict(
                 camera=dict(eye=weight_eyes[1]),
-                xaxis=dict(backgroundcolor=feature_colors[1]),
+                xaxis=dict(backgroundcolor=feature_colors[1], range=frame.get_range(dim=0, pad=True)),
                 yaxis=dict(backgroundcolor=feature_colors[0]),
             ),
             scene4=dict(
                 camera=dict(eye=bias_eye),
                 xaxis=dict(backgroundcolor=feature_colors[1]),
                 yaxis=dict(backgroundcolor=feature_colors[0]),
+                zaxis=dict(range=frame.get_bias_zrange(pad=True)),
             ),
         ),
     )

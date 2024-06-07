@@ -4,9 +4,14 @@ from base import focusable_feature_colors
 from themes import default_theme
 
 
+no_note = dict(visible=False, showarrow=False)
+
+
 def loss_annotations(X, targets, preds, focused_errors, show=True):
+    m = X.size(0)
+
     if not show or not focused_errors:
-        return []
+        return [no_note for _ in range(m)]
 
     # use pred for z if target is 0 else use target
     z = [pred if t == 0 else t for t, pred in zip(targets, preds)]
@@ -66,8 +71,11 @@ def feature_annotations(
         if focused_feature in (None, 0):
             note = annotate(i, 0, X[:, 0][i], X[:, 1][i], z[i])
 
-        if focused_feature in (None, 1):
+        elif focused_feature in (None, 1):
             note = annotate(i, 1, X[:, 0][i], X[:, 1][i], z[i])
+
+        else:
+            note = no_note
 
         annotations.append(note)
 
@@ -76,10 +84,10 @@ def feature_annotations(
 
 def inference_annotation(w, b, inference, show=True):
     if not show:
-        return []
+        return [no_note]
 
     if inference is None:
-        return []
+        return [no_note]
 
     pred = torch.sigmoid((inference @ w.T) + b).item()
     text = f"<b>{pred:.2f} {'>' if pred > 0.5 else '<'} 0.5</b>"
@@ -107,7 +115,7 @@ def weight_annotations(
     theme=default_theme,
 ):
     if not show:
-        return []
+        return [no_note, no_note, no_note]
 
     if focus_labels:
         feature_colors = theme.focused_feature_colors

@@ -6,7 +6,9 @@ from numpy import linspace as ls
 
 from utils import clone
 
-all_chapters = ["logistic", "xor", "neural", "fit", "weights"]
+from sklearn.datasets import make_circles
+
+all_chapters = ["logistic", "xor", "neural", "fit", "weights", "fit-guassian"]
 
 
 def get_animation(
@@ -122,7 +124,7 @@ def get_animation(
     show_profile = False
     show_decision_boundaries = False
 
-    # show logistic regression uses one bent surface to learn or
+    # show logistic regression uses one bent surface to learn linearly separable data
     if "logistic" in chapters:
         X = torch.Tensor([[1, 0], [0, 1]])
         targets = torch.Tensor([[0, 1]])
@@ -472,5 +474,52 @@ def get_animation(
             capture()
 
         capture(10)
+
+    if "fit-guassian" in chapters:
+        X, targets = make_circles(30, factor=0.1, noise=0.1)
+
+        X = torch.from_numpy(X).float()
+        targets = torch.from_numpy(targets).float().unsqueeze(0)
+
+        m = X.size(0)
+
+        size = {"input": 2, "hidden": 8, "output": 1}
+
+        w = {
+            "hidden": torch.randn(size["hidden"], size["input"]),
+            "output": torch.randn(size["output"], size["hidden"]),
+        }
+        b = {"hidden": torch.zeros((size["hidden"], 1)), "output": torch.zeros((size["output"], 1))}
+
+        preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+        weight_eyes = initial_weight_eyes
+
+        capture()
+
+        learning_rate = 2.5
+        epochs = 1000
+        for i in range(epochs):
+            errors["output"] = preds["output"] - targets
+            dw = errors["output"] @ preds["hidden"].T
+            db = torch.sum(errors["output"])
+            errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
+            dw1 = errors["hidden"] @ X
+            db1 = torch.sum(errors["hidden"])
+
+            w["output"] -= (1 / m) * learning_rate * dw
+            b["output"] -= (1 / m) * learning_rate * db
+            w["hidden"] -= (1 / m) * learning_rate * dw1
+            b["hidden"] -= (1 / m) * learning_rate * db1
+
+            preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+            preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+            # get 30 frames given any number of epochs
+            count = epochs // 30
+            remainder = epochs % count
+            if i % count == remainder:
+                capture()
 
     return frames

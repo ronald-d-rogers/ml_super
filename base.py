@@ -288,6 +288,7 @@ class Frame:
 
     @property
     def X(self) -> int:
+        self._domain = None
         return self._X
 
     @property

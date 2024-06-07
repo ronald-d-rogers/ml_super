@@ -25,8 +25,8 @@ def get_animation(
         random_state=42,
     )
 
-    X = torch.Tensor(X)
-    targets = torch.Tensor(targets)
+    X = torch.from_numpy(X).float()
+    targets = torch.from_numpy(targets).float()
 
     m = X.size(0)
     w = torch.Tensor([0, 0])
