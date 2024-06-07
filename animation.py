@@ -9,7 +9,7 @@ import tqdm
 from annotations.neural_network import neural_network_annotations
 from themes import default_theme
 from annotations.scene import (
-    loss_annotations,
+    error_annotations,
     feature_annotations,
     inference_annotation,
     weight_annotations,
@@ -213,7 +213,7 @@ def make_frame(frame: Frame, animation: Animation, name: str):
                 zaxis=dict(range=frame.get_zrange(pad=True)),
                 annotations=[
                     *inference_annotation(w=w, b=b, inference=frame.inference, show=animation.show_model),
-                    *loss_annotations(
+                    *error_annotations(
                         X=frame.X,
                         targets=view.targets,
                         preds=view.preds,

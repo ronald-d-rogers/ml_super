@@ -7,7 +7,7 @@ from themes import default_theme
 no_note = dict(visible=False, showarrow=False)
 
 
-def loss_annotations(X, targets, preds, focused_errors, show=True):
+def error_annotations(X, targets, preds, focused_errors, show=True):
     m = X.size(0)
 
     if not show or not focused_errors:

@@ -152,12 +152,16 @@ def get_animation(
     # show logistic regression fail to learn xor
     if "xor" in chapters:
         X = xor_X
+        m = X.size(0)
+
         targets = xor_targets
         w = {"output": torch.Tensor([[0, 0]])}
         b = {"output": torch.Tensor([[0.5]])}
         preds["output"] = predict(X, w["output"], b["output"])
 
         weight_eyes = hidden_weight_eyes
+
+        focused_errors["output"] = [list(range(m)) for _ in range(size["output"])]
 
         capture()
 
@@ -169,6 +173,8 @@ def get_animation(
             capture()
 
         capture(10)
+
+        focused_errors["output"] = [[] for _ in range(size["output"])]
 
     # show neural network calculations
     if "neural" in chapters:
