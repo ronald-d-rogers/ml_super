@@ -120,6 +120,7 @@ def pred_markers(
         z=(preds + standoff),
         mode="markers+text",
         marker=dict(size=size, line=dict(color="black", width=1)),
+        marker_size=size,
         opacity=opacity,
         marker_color=[theme.class_colors[bool(t > 0.5)] for t in targs],
         text=[f"x<sub>{i+1}</sub>" for i in indices],

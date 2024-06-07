@@ -192,21 +192,31 @@ class Animation:
         if component:
             if component == "w1":
                 if "hidden" in w:
-                    w["hidden"] = torch.Tensor([[1, 0]]).T * w["hidden"]
-                    b["hidden"] = torch.Tensor([[1, 0]]).T * b["hidden"]
+                    mask = [0 for _ in range(frame.size["hidden"])]
+                    mask[0] = 1
+                    # bias_mask = [0 for _ in range(frame.size["hidden"])]
+                    w["hidden"] = torch.Tensor([mask]).T * w["hidden"]
+                    b["hidden"] = torch.Tensor([mask]).T * b["hidden"]
                     activity = activity if activity is not None else 1
                 else:
-                    w["output"] = torch.Tensor([[1, 0]]) * w["output"]
+                    mask = [0 for _ in range(frame.size["input"])]
+                    mask[0] = 1
+                    w["output"] = torch.Tensor([mask]) * w["output"]
                     b["output"] = torch.Tensor([[0]])
                     activity = activity if activity is not None else 0
 
             elif component == "w2":
                 if "hidden" in w:
-                    w["hidden"] = torch.Tensor([[0, 1]]).T * w["hidden"]
-                    b["hidden"] = torch.Tensor([[0, 1]]).T * b["hidden"]
+                    mask = [0 for _ in range(frame.size["hidden"])]
+                    mask[1] = 1
+                    # bias_mask = [0 for _ in range(frame.size["hidden"])]
+                    w["hidden"] = torch.Tensor([mask]).T * w["hidden"]
+                    b["hidden"] = torch.Tensor([mask]).T * b["hidden"]
                     activity = activity if activity is not None else 1
                 else:
-                    w["output"] = torch.Tensor([[0, 1]]) * w["output"]
+                    mask = [0 for _ in range(frame.size["input"])]
+                    mask[1] = 1
+                    w["output"] = torch.Tensor([mask]) * w["output"]
                     b["output"] = torch.Tensor([[0]])
                     activity = activity if activity is not None else 0
 

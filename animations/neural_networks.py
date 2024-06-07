@@ -4,7 +4,7 @@ from base import Frame
 from learning import predict
 from numpy import linspace as ls
 
-from utils import clone
+from utils import clone, ease_in, ease_out
 
 from sklearn.datasets import make_circles
 
@@ -381,6 +381,12 @@ def get_animation(
             if i % count == remainder:
                 capture()
 
+        focused_errors["output"] = [list(range(m)) for _ in range(size["output"])]
+
+        capture()
+
+        focused_errors["output"] = [[] for _ in range(size["output"])]
+
     # show that neural network trains to add two bent surfaces together to fit xor
     if "weights" in chapters:
         X = xor_X
@@ -422,7 +428,7 @@ def get_animation(
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
-        capture(10)
+        capture()
 
         # reset weight 1 to 0
         for i in ls(-10, 0, 10):
@@ -445,7 +451,7 @@ def get_animation(
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
-        capture(10)
+        capture()
 
         # reset all output weights to 0
         for i, j, k in zip(ls(w["output"][0][0], 0, 10), ls(w["output"][0][1], 0, 10), ls(b["output"][0][0], 0, 10)):
@@ -470,7 +476,7 @@ def get_animation(
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
-        capture(5)
+        capture()
 
         # bring down bias to -5 to show a fit model
         for i in ls(0, -5, 10):
@@ -479,9 +485,11 @@ def get_animation(
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
             capture()
 
-        capture(10)
+        capture()
 
     if "fit-guassian" in chapters:
+        eye = intial_eye
+
         X, targets = make_circles(30, factor=0.1, noise=0.1)
 
         X = torch.from_numpy(X).float()
@@ -527,5 +535,10 @@ def get_animation(
             remainder = epochs % count
             if i % count == remainder:
                 capture()
+
+        # show profile of the model
+        for z in ease_in(ls(eye[2], 0, 10)):
+            eye = (eye[0], eye[1], z)
+            capture()
 
     return frames
