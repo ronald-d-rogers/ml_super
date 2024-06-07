@@ -122,6 +122,7 @@ def get_animation(
     show_profile = False
     show_decision_boundaries = False
 
+    # show logistic regression uses one bent surface to learn or
     if "logistic" in chapters:
         X = torch.Tensor([[1, 0], [0, 1]])
         targets = torch.Tensor([[0, 1]])
@@ -146,6 +147,7 @@ def get_animation(
 
         focused_errors["output"] = [[] for _ in range(size["output"])]
 
+    # show logistic regression fail to learn xor
     if "xor" in chapters:
         X = xor_X
         targets = xor_targets
@@ -166,6 +168,7 @@ def get_animation(
 
         capture(10)
 
+    # show neural network calculations
     if "neural" in chapters:
         X = xor_X
         m = X.size(0)
@@ -329,6 +332,7 @@ def get_animation(
 
                 focused_connections["input"] = []
 
+    # show neural network succeed in learning xor
     if "fit" in chapters:
         X = xor_X
         targets = xor_targets
@@ -369,7 +373,7 @@ def get_animation(
             if i % count == remainder:
                 capture()
 
-    # show the effect of changing weights and biases in a trained neural network
+    # show that neural network trains to add two bent surfaces together to fit xor
     if "weights" in chapters:
         X = xor_X
         targets = xor_targets
