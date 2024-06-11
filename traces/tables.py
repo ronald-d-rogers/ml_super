@@ -20,7 +20,7 @@ def cost_tables(
     class_colors = animation.theme.class_colors
 
     focused_preds = view.focused_preds
-    feature_colors = animation.focusable_feature_colors(frame.focused_feature)
+    feature_colors = animation.focusable_colors(frame.focused_feature)
 
     X = X[focused_preds]
     targets = targets[focused_preds]

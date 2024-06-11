@@ -10,7 +10,7 @@ default_marker_size = 30
 
 def loss_lines(X, preds, targs, opacity=1, line=None, visible=True, meta=None):
     if not line:
-        line = dict(color="white", width=5, dash="dot")
+        line = dict(color="black", width=5, dash="dot")
 
     xs, ys, zs = [], [], []
 
@@ -61,7 +61,17 @@ def feature_lines(
 
 
 def target_markers(
-    X, preds, targs, indices, focus=None, size=default_marker_size, standoff=None, meta=None, theme=default_theme
+    X,
+    preds,
+    targs,
+    indices,
+    focus=None,
+    color="white",
+    size=default_marker_size,
+    standoff=None,
+    meta=None,
+    theme=default_theme,
+    visible=True,
 ):
     m = X.size(0)
     xs, ys, zs = [], [], []
@@ -73,13 +83,13 @@ def target_markers(
 
         if focus:
             marker_color = [theme.class_colors[bool(t > 0.5)] for t in targs]
-            textfont_color = "black"
+            textfont_color = color
 
         else:
             # if pred close enough to target, marker_color is transparent, else black
             marker_color = "rgba(0, 0, 0, 0)"
             textfont_color = [
-                "white" if abs(t - p) > 0.25 else "rgba(0, 0, 0, 0)" for t, p in torch.stack((targs, preds), dim=1)
+                color if abs(t - p) > 0.25 else "rgba(0, 0, 0, 0)" for t, p in torch.stack((targs, preds), dim=1)
             ]
 
     return go.Scatter3d(
@@ -87,12 +97,13 @@ def target_markers(
         y=ys,
         z=zs,
         mode="markers+text",
-        marker=dict(size=size, line=dict(color="white")),
+        marker=dict(size=size),
         text=[f"x<sub>{i+1}</sub>" for i in indices],
         marker_color=marker_color,
         textfont_size=size,
         textfont_color=textfont_color,
         textposition="middle center",
+        visible=visible,
         meta=meta,
     )
 
@@ -161,6 +172,8 @@ def data_markers(
     focused_errors: List[int] = None,
     focus_targets=False,
     show_preds=True,
+    show_targets=True,
+    target_color="white",
     marker_size=30,
     meta: dict = None,
     theme: Theme = None,
@@ -172,9 +185,32 @@ def data_markers(
     standoff = 0.033
 
     traces = [
-        loss_lines(X, preds, targets, meta=meta),
-        target_markers(X, preds, targets, indices, focus_targets, size=marker_size, standoff=standoff, meta=meta),
-        inference_marker(inference, w, b, size=marker_size, meta=meta),
+        loss_lines(
+            X,
+            preds,
+            targets,
+            meta=meta,
+            visible=show_targets,
+        ),
+        target_markers(
+            X,
+            preds,
+            targets,
+            indices,
+            focus=focus_targets,
+            size=marker_size,
+            standoff=standoff,
+            color=target_color,
+            visible=show_targets,
+            meta=meta,
+        ),
+        inference_marker(
+            inference,
+            w,
+            b,
+            size=marker_size,
+            meta=meta,
+        ),
         feature_lines(
             X,
             preds,
@@ -210,7 +246,14 @@ def data_markers(
         targs = torch.Tensor([])
 
     traces += [
-        loss_lines(X, preds, targs, line=dict(color="red", width=10), meta=meta),
+        loss_lines(
+            X,
+            preds,
+            targs,
+            line=dict(color="red", width=10),
+            meta=meta,
+            visible=show_targets,
+        ),
     ]
 
     return traces
@@ -251,20 +294,26 @@ def model_surface(
     surface_linspace,
     w,
     b,
+    modules,
+    activations,
     activity=1,
     show_profile=False,
     show_decision_boundaries=False,
+    profile_line_width=6,
     res=20,
     meta=None,
 ):
     sx = surface_linspace[:, 0]
     sy = surface_linspace[:, 1]
 
-    if "hidden" in w:
-        preds = predict(surface_points, w["hidden"], b["hidden"]).T
-        preds = predict(preds, w["output"], b["output"])
-    else:
-        preds = predict(surface_points, w["output"], b["output"], activity=activity)
+    preds = surface_points.T
+
+    # skip input module
+    modules = modules[1:]
+
+    for i, module in enumerate(modules):
+        activity = activity if i == len(modules) - 1 else None
+        preds = predict(preds.T, w[module], b[module], activation=activations[module], activity=activity)
 
     preds = torch.reshape(preds, (res, res))
     preds = torch.rot90(preds, 3)
@@ -287,27 +336,26 @@ def model_surface(
 
     lines = torch.cat((left.T, top.T, right.T, bottom.T))
 
-    if "hidden" in w:
-        preds = predict(lines, w["hidden"], b["hidden"]).T
-        preds = predict(preds, w["output"], b["output"])
-    else:
-        preds = predict(lines, w["output"], b["output"], activity=activity)
+    preds = lines.T
+    for i, module in enumerate(modules):
+        activity = activity if i == len(modules) - 1 else None
+        preds = predict(preds.T, w[module], b[module], activation=activations[module], activity=activity)
 
     border = go.Scatter3d(
         x=lines[:, 0],
         y=lines[:, 1],
         z=preds[0],
         mode="lines",
-        line=dict(color="black", width=6),
+        line=dict(color="black", width=profile_line_width),
         meta=meta,
         visible=show_profile,
     )
 
-    if "hidden" not in w:
-        boundary = decision_boundary(
-            w["output"][0], b["output"][0], domain, visible=show_decision_boundaries, meta=meta
-        )
-    else:
-        boundary = go.Scatter3d(visible=False, meta=meta)
+    # if "hidden" not in w:
+    #     boundary = decision_boundary(
+    #         w["output"][0], b["output"][0], domain, visible=show_decision_boundaries, meta=meta
+    #     )
+    # else:
+    #     boundary = go.Scatter3d(visible=False, meta=meta)
 
-    return [surface, boundary, border]
+    return [surface, border]

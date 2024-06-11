@@ -1,10 +1,10 @@
 import torch
 
 from base import Frame
-from learning import predict
+from learning import predict, sigmoid, sigmoid_derivative
 from numpy import linspace as ls
 
-from utils import clone, ease_in, ease_out
+from utils import clone
 
 from sklearn.datasets import make_circles
 
@@ -29,8 +29,10 @@ def get_animation(
             costs=clone(costs),
             w=clone(w),
             b=clone(b),
+            activations=clone(activations),
             epochs=epochs,
             learning_rate=learning_rate,
+            modules=clone(modules),
             size=size,
             bias_zrange=bias_zrange,
             domain_padding=0.4,
@@ -40,6 +42,8 @@ def get_animation(
             bias_eye=bias_eye,
             inference=inference.clone() if inference is not None else None,
             activity=activity,
+            active_preds=clone(active_preds),
+            active_errors=clone(active_errors),
             focused_node=focused_node,
             focused_connections=clone(focused_connections),
             focused_feature=focused_feature,
@@ -50,6 +54,7 @@ def get_animation(
             focused_losses=clone(focused_losses),
             focus_labels=focus_labels,
             focus_targets=focus_targets,
+            focus_costs=focus_costs,
             show_preds=show_preds,
             show_profile=show_profile,
             show_decision_boundaries=show_decision_boundaries,
@@ -63,14 +68,16 @@ def get_animation(
 
     torch.manual_seed(42)
 
+    activations = {"hidden": sigmoid, "output": sigmoid}
+
+    modules = ["input", "hidden", "output"]
     size = {"input": 2, "hidden": 2, "output": 1}
 
     xor_X = torch.Tensor([[0, 0], [0, 1], [1, 0], [1, 1]])
     xor_targets = torch.Tensor([[0, 1, 1, 0]])
     inference = None
 
-    intial_eye = (1.2, -0.8, 1)
-    initial_weight_eyes = ((1, -1, 0), (1, -1, 0))
+    initial_eye = (1.2, -0.8, 1)
 
     initial_w = {
         "hidden": torch.randn(size["hidden"], size["input"]),
@@ -84,8 +91,15 @@ def get_animation(
     }
     final_b = {"output": torch.Tensor([[-5.3260169029]]), "hidden": torch.Tensor([[-6.7141456604], [-6.7141456604]])}
 
-    eye = intial_eye
-    hidden_weight_eyes = ((0, 1, 0), (1, 0, 0))
+    activations = {
+        "hidden": [sigmoid for _ in range(size["hidden"])],
+        "output": [sigmoid for _ in range(size["output"])],
+    }
+
+    eye = initial_eye
+    weight_eyes = None
+    neuron_weight_eyes = ((0, 1, 0), (1, 0, 0))
+    xor_weight_eyes = ((1, -1, 0), (1, -1, 0))
 
     bias_eye = (1, -1, 0)
     bias_zrange = (-5.5, 6.6)
@@ -107,6 +121,11 @@ def get_animation(
         "hidden": torch.zeros(size["hidden"], size["input"]),
     }
 
+    initial_costs = clone(costs)
+
+    active_preds = {"output": [[] for _ in range(size["output"])], "hidden": [[] for _ in range(size["hidden"])]}
+    active_errors = {"output": [[] for _ in range(size["output"])], "hidden": [[] for _ in range(size["hidden"])]}
+
     focused_node = {"input": None, "hidden": None, "output": None}
     focused_connections = {"input": [], "hidden": [], "output": []}
 
@@ -118,23 +137,31 @@ def get_animation(
 
     activity = 1
     focused_feature = None
+    focus_costs = False
     focus_labels = None
     focus_targets = False
     show_preds = True
     show_profile = False
     show_decision_boundaries = False
 
-    # show logistic regression uses one bent surface to learn linearly separable data
+    # show how logistic regression can use a single bent surface to learn linearly separable data
     if "logistic" in chapters:
         X = torch.Tensor([[1, 0], [0, 1]])
-        targets = torch.Tensor([[0, 1]])
+
+        modules = ["input", "output"]
+        size = {"input": 2, "output": 1}
+
         w = {"output": torch.Tensor([[0, 0]])}
         b = {"output": torch.Tensor([[0.5]])}
+
+        targets = torch.Tensor([[0, 1]])
         preds["output"] = predict(X, w["output"], b["output"])
 
-        weight_eyes = hidden_weight_eyes
+        weight_eyes = neuron_weight_eyes
 
         capture()
+
+        learning_rate = 5
 
         m = X.size(0)
         for _ in range(epochs):
@@ -154,12 +181,18 @@ def get_animation(
         X = xor_X
         m = X.size(0)
 
-        targets = xor_targets
+        learning_rate = 1
+
+        modules = ["input", "output"]
+        size = {"input": 2, "output": 1}
+
         w = {"output": torch.Tensor([[0, 0]])}
         b = {"output": torch.Tensor([[0.5]])}
+
+        targets = xor_targets
         preds["output"] = predict(X, w["output"], b["output"])
 
-        weight_eyes = hidden_weight_eyes
+        weight_eyes = neuron_weight_eyes
 
         focused_errors["output"] = [list(range(m)) for _ in range(size["output"])]
 
@@ -176,13 +209,72 @@ def get_animation(
 
         focused_errors["output"] = [[] for _ in range(size["output"])]
 
+    # show neural network succeed in learning xor
+    if "fit" in chapters:
+        X = xor_X
+        targets = xor_targets
+        m = X.size(0)
+
+        learning_rate = 2.5
+
+        w = clone(initial_w)
+        b = clone(initial_b)
+
+        activations = {"hidden": sigmoid, "output": sigmoid}
+
+        preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+        weight_eyes = xor_weight_eyes
+
+        capture()
+
+        epochs = 1000
+        for i in range(epochs):
+            errors["output"] = preds["output"] - targets
+
+            dw = errors["output"] @ preds["hidden"].T
+            db = torch.sum(errors["output"])
+            costs["output"] = dw
+
+            errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
+
+            dw1 = errors["hidden"] @ X
+            db1 = torch.sum(errors["hidden"])
+            costs["hidden"] = dw1
+
+            w["output"] -= (1 / m) * learning_rate * dw
+            b["output"] -= (1 / m) * learning_rate * db
+            w["hidden"] -= (1 / m) * learning_rate * dw1
+            b["hidden"] -= (1 / m) * learning_rate * db1
+
+            preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+            preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+            # get 30 frames given any number of epochs
+            count = epochs // 30
+            remainder = epochs % count
+            if i % count == remainder:
+                capture()
+
+        focused_errors["output"] = [list(range(m)) for _ in range(size["output"])]
+
+        capture(10)
+
+        focused_errors["output"] = [[] for _ in range(size["output"])]
+
     # show neural network calculations
     if "neural" in chapters:
         X = xor_X
         m = X.size(0)
         targets = xor_targets
+
+        learning_rate = 2.5
+
         w = clone(initial_w)
         b = clone(initial_b)
+
+        activations = {"hidden": sigmoid, "output": sigmoid}
 
         preds["hidden"] = predict(X, w["hidden"], b["hidden"])
         preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
@@ -193,7 +285,8 @@ def get_animation(
         errors["output"] = preds["output"] - targets
         errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
 
-        weight_eyes = initial_weight_eyes
+        focus_costs = True
+        weight_eyes = None
 
         capture()
 
@@ -251,10 +344,13 @@ def get_animation(
 
         # show backpropagation
 
+        activations = {"hidden": sigmoid_derivative, "output": sigmoid}
+
         # focus output errors one by one
         for i in range(m):
             for j in range(size["output"]):
                 focused_errors["output"][j].append(i)
+                active_errors["output"][j].append(i)
             capture()
 
         # for each output node, show it's contribution to the loss
@@ -340,52 +436,24 @@ def get_animation(
 
                 focused_connections["input"] = []
 
-    # show neural network succeed in learning xor
-    if "fit" in chapters:
-        X = xor_X
-        targets = xor_targets
+        activations = {"hidden": sigmoid, "output": sigmoid}
 
-        m = X.size(0)
+        capture(3)
 
-        w = clone(initial_w)
-        b = clone(initial_b)
+        # update the weights with the costs
+        costs["hidden"] = (1 / m) * learning_rate * costs["hidden"]
+        costs["output"] = (1 / m) * learning_rate * costs["output"]
 
-        preds["hidden"] = predict(X, w["hidden"], b["hidden"])
-        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+        capture(3)
 
-        weight_eyes = initial_weight_eyes
+        w["output"] -= costs["output"]
+        w["hidden"] -= costs["hidden"]
 
-        capture()
+        costs = initial_costs
 
-        learning_rate = 2.5
-        epochs = 1000
-        for i in range(epochs):
-            errors["output"] = preds["output"] - targets
-            dw = errors["output"] @ preds["hidden"].T
-            db = torch.sum(errors["output"])
-            errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
-            dw1 = errors["hidden"] @ X
-            db1 = torch.sum(errors["hidden"])
+        capture(4)
 
-            w["output"] -= (1 / m) * learning_rate * dw
-            b["output"] -= (1 / m) * learning_rate * db
-            w["hidden"] -= (1 / m) * learning_rate * dw1
-            b["hidden"] -= (1 / m) * learning_rate * db1
-
-            preds["hidden"] = predict(X, w["hidden"], b["hidden"])
-            preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
-
-            # get 30 frames given any number of epochs
-            count = epochs // 30
-            remainder = epochs % count
-            if i % count == remainder:
-                capture()
-
-        focused_errors["output"] = [list(range(m)) for _ in range(size["output"])]
-
-        capture()
-
-        focused_errors["output"] = [[] for _ in range(size["output"])]
+        focus_costs = False
 
     # show that neural network trains to add two bent surfaces together to fit xor
     if "weights" in chapters:
@@ -394,14 +462,15 @@ def get_animation(
         w = clone(final_w)
         b = clone(final_b)
 
+        activations = {"hidden": sigmoid, "output": sigmoid}
+
         preds["hidden"] = predict(X, w["hidden"], b["hidden"])
         preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
-
-        weight_eyes = initial_weight_eyes
 
         capture()
 
         eye = None
+        weight_eyes = xor_weight_eyes
 
         # set all output weights to 0
         for i, j, k in zip(
@@ -487,28 +556,38 @@ def get_animation(
 
         capture()
 
-    if "fit-guassian" in chapters:
-        eye = intial_eye
+    if "gaussian" in chapters:
+        torch.manual_seed(6)
+        eye = initial_eye
 
         X, targets = make_circles(30, factor=0.1, noise=0.1)
 
         X = torch.from_numpy(X).float()
         targets = torch.from_numpy(targets).float().unsqueeze(0)
-
         m = X.size(0)
-
-        size = {"input": 2, "hidden": 8, "output": 1}
 
         w = {
             "hidden": torch.randn(size["hidden"], size["input"]),
             "output": torch.randn(size["output"], size["hidden"]),
         }
+
         b = {"hidden": torch.zeros((size["hidden"], 1)), "output": torch.zeros((size["output"], 1))}
 
-        preds["hidden"] = predict(X, w["hidden"], b["hidden"])
-        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+        activations = {"hidden": sigmoid, "output": sigmoid}
 
-        weight_eyes = initial_weight_eyes
+        preds["hidden"] = predict(X, w["hidden"], b["hidden"], activations=activations["hidden"])
+        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"], activations=activations["output"])
+
+        learning_rate = 2.5
+
+        size = {"input": 2, "hidden": 3, "output": 1}
+
+        costs = {
+            "output": torch.zeros(size["output"], size["hidden"]),
+            "hidden": torch.zeros(size["hidden"], size["input"]),
+        }
+
+        weight_eyes = None
 
         capture()
 
@@ -516,11 +595,16 @@ def get_animation(
         epochs = 1000
         for i in range(epochs):
             errors["output"] = preds["output"] - targets
+
             dw = errors["output"] @ preds["hidden"].T
             db = torch.sum(errors["output"])
+            costs["output"] = (1 / m) * learning_rate * dw
+
             errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
+
             dw1 = errors["hidden"] @ X
             db1 = torch.sum(errors["hidden"])
+            costs["hidden"] = (1 / m) * learning_rate * dw1
 
             w["output"] -= (1 / m) * learning_rate * dw
             b["output"] -= (1 / m) * learning_rate * db
@@ -537,8 +621,10 @@ def get_animation(
                 capture()
 
         # show profile of the model
-        for z in ease_in(ls(eye[2], 0, 10)):
+        for z in ls(eye[2], 3, 10):
             eye = (eye[0], eye[1], z)
             capture()
+
+        torch.manual_seed(42)
 
     return frames

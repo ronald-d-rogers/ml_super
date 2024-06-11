@@ -16,10 +16,12 @@ from annotations.scene import (
 )
 from traces.scene import data_markers, model_surface
 
-from traces.neural_network import neural_network
+from traces.neural_network import activations, neural_network
 from traces.tables import cost_tables
 
 from base import Frame, Animation, View
+
+transparent = "rgba(255,255,255,.1)"
 
 
 def scene_traces(
@@ -27,20 +29,30 @@ def scene_traces(
     frame: Frame,
     show_profile,
     focused_feature,
-    marker_size,
-    theme,
+    show_preds=True,
+    show_targets=True,
+    target_color="white",
+    marker_size=30,
+    profile_line_width=6,
+    theme=default_theme,
     meta=None,
 ):
+    modules = view.modules
+    output = modules[-1]
+
     return [
         *data_markers(
             X=frame.X,
-            w=view.w["output"][0],
-            b=view.b["output"][0],
+            w=view.w[output][0],
+            b=view.b[output][0],
             preds=view.preds,
             targets=view.targets,
             inference=frame.inference,
             focused_feature=focused_feature,
             focused_errors=view.focused_errors,
+            show_preds=show_preds,
+            show_targets=show_targets,
+            target_color=target_color,
             marker_size=marker_size,
             meta=meta,
             theme=theme,
@@ -51,8 +63,11 @@ def scene_traces(
             surface_linspace=frame.surface_linspace,
             w=view.w,
             b=view.b,
+            modules=view.modules,
+            activations=frame.activations,
             activity=view.activity,
             show_profile=show_profile,
+            profile_line_width=profile_line_width,
             meta=meta,
         ),
     ]
@@ -70,66 +85,48 @@ def model_view(view: View, frame: Frame, animation: Animation):
         show_profile=frame.show_profile,
         focused_feature=frame.focused_feature,
         marker_size=animation.marker_size,
+        target_color="white" if animation.show_bg else "black",
         theme=animation.theme,
         meta=dict(row=meta["row"], col=meta["col"]),
     )
 
 
 def components_view(frame: Frame, animation: Animation):
-    show_components = animation.show_components
+    show_weights = animation.show_weights
 
-    if not show_components:
+    if not show_weights:
         return []
-
-    meta1 = animation.meta["component1"]
-    meta2 = animation.meta["component2"]
-    meta3 = animation.meta["component3"]
-
-    w1, w2, bias = [], [], []
-
-    if isinstance(show_components, bool):
-        show_w1, show_w2, show_bias = (True, True, True)
-    else:
-        show_w1, show_w2, show_bias = show_components
 
     scene_args = dict(
         marker_size=animation.marker_size * 0.666,
         show_profile=True,
         focused_feature=None,
+        target_color="white" if animation.show_bg else "black",
+        show_preds=animation.show_component_preds,
+        show_targets=animation.show_component_preds,
+        profile_line_width=animation.component_line_width,
         theme=animation.theme,
     )
 
-    if show_w1:
-        view = animation.node_view(frame, component="w1")
+    value = []
 
-        w1 = scene_traces(
+    for i in show_weights:
+        if isinstance(i, int):
+            name = f"weight{i}"
+        else:
+            name = "bias"
+
+        meta = animation.meta[name]
+        view = animation.node_view(frame, component=i)
+
+        value += scene_traces(
             view=view,
             frame=frame,
-            meta=dict(row=meta1["row"], col=meta1["col"]),
+            meta=dict(row=meta["row"], col=meta["col"]),
             **scene_args,
         )
 
-    if show_w2:
-        view = animation.node_view(frame, component="w2")
-
-        w2 = scene_traces(
-            view=view,
-            frame=frame,
-            meta=dict(row=meta2["row"], col=meta2["col"]),
-            **scene_args,
-        )
-
-    if show_bias:
-        view = animation.node_view(frame, component="b")
-
-        bias = scene_traces(
-            view=view,
-            frame=frame,
-            meta=dict(row=meta3["row"], col=meta3["col"]),
-            **scene_args,
-        )
-
-    return [*w1, *w2, *bias]
+    return value
 
 
 def tables_view(view: View, frame: Frame, animation: Animation):
@@ -161,13 +158,31 @@ def network_view(frame: Frame, animation: Animation):
             frame,
             animation,
             meta=dict(row=meta["row"], col=meta["col"]),
-        )
+        ),
+        *activations(
+            frame,
+            animation,
+            meta=dict(row=meta["row"], col=meta["col"]),
+        ),
     ]
 
 
-def make_frame(frame: Frame, animation: Animation, name: str):
-    feature_colors = animation.focusable_feature_colors(frame.focused_feature)
+def get_colors(frame: Frame, view: View, animation: Animation):
+    output = view.modules[-1]
+    hidden_or_input = view.modules[-2]
+    feature_colors = animation.focusable_colors(frame.focused_feature, frame.size[hidden_or_input])
 
+    # if it has a hidden layer
+    if len(view.modules) > 2:
+        color = animation.colors(frame.size[output])[animation.node_index]
+        output_colors = [color]
+    else:
+        output_colors = feature_colors
+
+    return output_colors, feature_colors
+
+
+def make_frame(frame: Frame, animation: Animation, name: str):
     if frame.eye:
         eye = dict(x=frame.eye[0], y=frame.eye[1], z=frame.eye[2])
     else:
@@ -175,13 +190,25 @@ def make_frame(frame: Frame, animation: Animation, name: str):
 
     view = animation.node_view(frame)
 
-    weight_eyes = view.get_weight_eyes()
-    bias_eye = frame.get_bias_eye()
+    output_module = view.modules[-1]
+    input_module = view.modules[-2]
+    input_size = frame.size[input_module]
 
-    w = view.w["output"][0]
-    b = view.b["output"][0]
+    show_label_names = animation.show_label_names
+    label_precision = animation.label_precision
+    label_yshift = animation.label_yshift
+    label_font_size = animation.label_font_size
+    show_bg = animation.show_bg
 
-    return go.Frame(
+    output_colors, feature_colors = get_colors(frame, view, animation)
+
+    weight_eyes = view.get_weight_eyes(as_dict=True)
+    bias_eye = frame.get_bias_eye(as_dict=True)
+
+    w = view.w[output_module][0]
+    b = view.b[output_module][0]
+
+    value = go.Frame(
         name=name,
         data=[
             *model_view(view, frame, animation),
@@ -194,9 +221,12 @@ def make_frame(frame: Frame, animation: Animation, name: str):
                 *weight_annotations(
                     w=w,
                     b=b,
-                    height=animation.height,
-                    focused_feature=frame.focused_feature,
-                    focus_labels=frame.focus_labels,
+                    width=animation.width,
+                    feature_colors=feature_colors,
+                    show_label_names=show_label_names,
+                    label_precision=label_precision,
+                    label_yshift=label_yshift,
+                    label_font_size=label_font_size,
                     theme=animation.theme,
                     show=animation.show_model,
                 ),
@@ -208,11 +238,22 @@ def make_frame(frame: Frame, animation: Animation, name: str):
                 xaxis_title="",
                 yaxis_title="",
                 zaxis_title="",
-                xaxis=dict(backgroundcolor=feature_colors[1], range=frame.get_range(dim=0, pad=True)),
-                yaxis=dict(backgroundcolor=feature_colors[0], range=frame.get_range(dim=1, pad=True)),
+                xaxis=dict(
+                    backgroundcolor=output_colors[0] if show_bg else transparent,
+                    range=frame.get_range(dim=0, pad=True),
+                ),
+                yaxis=dict(
+                    backgroundcolor=output_colors[-1] if show_bg else transparent,
+                    range=frame.get_range(dim=1, pad=True),
+                ),
                 zaxis=dict(range=frame.get_zrange(pad=True)),
                 annotations=[
-                    *inference_annotation(w=w, b=b, inference=frame.inference, show=animation.show_model),
+                    *inference_annotation(
+                        w=w,
+                        b=b,
+                        inference=frame.inference,
+                        show=animation.show_model,
+                    ),
                     *error_annotations(
                         X=frame.X,
                         targets=view.targets,
@@ -231,39 +272,84 @@ def make_frame(frame: Frame, animation: Animation, name: str):
                     ),
                 ],
             ),
-            scene2=dict(
-                camera=dict(eye=weight_eyes[0]),
-                xaxis=dict(backgroundcolor=feature_colors[1]),
-                yaxis=dict(backgroundcolor=feature_colors[0], range=frame.get_range(dim=1, pad=True)),
-            ),
-            scene3=dict(
-                camera=dict(eye=weight_eyes[1]),
-                xaxis=dict(backgroundcolor=feature_colors[1], range=frame.get_range(dim=0, pad=True)),
-                yaxis=dict(backgroundcolor=feature_colors[0]),
-            ),
-            scene4=dict(
-                camera=dict(eye=bias_eye),
-                xaxis=dict(backgroundcolor=feature_colors[1]),
-                yaxis=dict(backgroundcolor=feature_colors[0]),
-                zaxis=dict(range=frame.get_bias_zrange(pad=True)),
-            ),
         ),
     )
+
+    if animation.show_weights:
+        for i in animation.show_weights:
+            if isinstance(i, int):
+                value.layout[f"scene{i + 1}"] = dict(
+                    camera=dict(eye=weight_eyes[i - 1]),
+                    xaxis=dict(backgroundcolor=feature_colors[i - 1]),
+                    yaxis=dict(
+                        backgroundcolor=feature_colors[i - 1],
+                        range=frame.get_range(dim=1, pad=True),
+                    ),
+                )
+
+            if i == "b":
+                value.layout[f"scene{input_size + 2}"] = dict(
+                    camera=dict(eye=bias_eye),
+                    xaxis=dict(backgroundcolor=feature_colors[-1]),
+                    yaxis=dict(backgroundcolor=feature_colors[0]),
+                    zaxis=dict(range=frame.get_bias_zrange(pad=True)),
+                )
+
+    return value
 
 
 def animate(
     frames: list[Frame],
     model_node="output_1",
     show_model=True,
-    show_components=True,
+    show_weights=True,
     show_tables=False,
     show_network=False,
+    show_bg=True,
+    show_label_names=True,
+    label_precision=3,
+    label_yshift=0,
+    label_font_size=40,
+    component_line_width=6,
+    show_component_preds=False,
     scale=2,
     render_path=None,
     theme=default_theme,
 ):
     views = {}
     specs = []
+
+    animation = Animation(
+        frames=frames,
+        model_node=model_node,
+        render_path=render_path,
+        show_model=show_model,
+        show_bg=show_bg,
+        show_component_preds=show_component_preds,
+        show_network=show_network,
+        show_calculations=show_tables,
+        show_label_names=show_label_names,
+        label_precision=label_precision,
+        label_yshift=label_yshift,
+        label_font_size=label_font_size,
+        marker_size=30,
+        line_width=10,
+        component_line_width=component_line_width,
+        scale=scale,
+        theme=theme,
+        meta=views,
+    )
+
+    frame = frames[0]
+    view = animation.node_view(frame)
+
+    input_module = view.modules[-2]
+    input_size = frame.size[input_module]
+
+    if show_weights is True:
+        show_weights = list(range(1, input_size + 1)) + ["b"]
+
+    animation.show_weights = show_weights
 
     height = 0
     width = 1080
@@ -278,61 +364,46 @@ def animate(
     costs_height = 128
     network_height = 1152
 
-    if show_model:
-        if "model" not in stage_heights:
-            stage_heights["model"] = model_height + components_height
-            row_heights.extend([model_height, components_height])
-            specs.append([dict(type="scene", colspan=3), None, None])
-            specs.append([dict(type="scene"), dict(type="scene"), dict(type="scene")])
+    # add one for bias
+    components_size = input_size + 1
+
+    if show_model or show_weights:
+        stage_heights["model"] = model_height + components_height
+        row_heights.extend([model_height, components_height])
+        specs.append([dict(type="scene", colspan=components_size)] + [None] * (components_size - 1))
+        specs.append([dict(type="scene")] * components_size)
 
         row_count += 1
 
-        views["model"] = dict(
-            name="model",
-            stage="model",
-            row=row_count,
-            col=1,
-            height=768,
-        )
-
-        if not show_components:
-            row_count += 1
-
-    if show_components:
-        if "model" not in stage_heights:
-            stage_heights["model"] = model_height + components_height
-            row_heights.extend([model_height, components_height])
-            specs.append([dict(type="scene", colspan=3), None, None])
-            specs.append([dict(type="scene"), dict(type="scene"), dict(type="scene")])
-
-        if not show_model:
-            row_count += 1
+        if show_model:
+            views["model"] = dict(
+                name="model",
+                stage="model",
+                row=row_count,
+                col=1,
+                height=768,
+            )
 
         row_count += 1
 
-        views["component1"] = dict(
-            name="component1",
-            stage="model",
-            row=row_count,
-            col=1,
-            height=components_height,
-        )
+        if show_weights:
+            for weight in show_weights:
+                if isinstance(weight, int):
+                    name = f"weight{weight}"
+                elif weight == "b":
+                    name = "bias"
+                else:
+                    raise ValueError(f"Invalid weight: {weight}")
 
-        views["component2"] = dict(
-            name="component2",
-            stage="model",
-            row=row_count,
-            col=2,
-            height=components_height,
-        )
+                col = weight if isinstance(weight, int) else input_size + 1
 
-        views["component3"] = dict(
-            name="component3",
-            stage="model",
-            row=row_count,
-            col=3,
-            height=components_height,
-        )
+                views[name] = dict(
+                    name=name,
+                    stage="model",
+                    row=row_count,
+                    col=col,
+                    height=components_height,
+                )
 
     if show_tables:
         stage_heights["tables"] = losses_height + costs_height
@@ -360,8 +431,8 @@ def animate(
 
         height += losses_height + costs_height
 
-        specs.append([dict(type="table", colspan=3), None, None])
-        specs.append([dict(type="table", colspan=3), None, None])
+        specs.append([dict(type="table", colspan=components_size)] + [None] * (components_size - 1))
+        specs.append([dict(type="table", colspan=components_size)] + [None] * (components_size - 1))
 
     if show_network:
         stage_heights["network"] = network_height
@@ -377,7 +448,7 @@ def animate(
             height=network_height,
         )
 
-        specs.append([dict(type="scatter", colspan=3), None, None])
+        specs.append([dict(type="scatter", colspan=components_size)] + [None] * (components_size - 1))
 
     height = sum(stage_heights.values())
 
@@ -386,31 +457,17 @@ def animate(
     if not render_path:
         height += controls_height
 
-    animation = Animation(
-        frames=frames,
-        model_node=model_node,
-        render_path=render_path,
-        show_model=show_model,
-        show_network=show_network,
-        show_components=show_components,
-        show_calculations=show_tables,
-        height=height,
-        width=width,
-        marker_size=30,
-        line_width=10,
-        scale=scale,
-        theme=theme,
-        meta=views,
-    )
+    output_colors, feature_colors = get_colors(frame, view, animation)
 
-    frame = frames[0]
-    view = animation.node_view(frame)
+    animation.width = width
+    animation.height = height
+    animation.meta = views
 
     # model_node = animation.node_view(frame)
 
     fig = make_subplots(
         rows=row_count,
-        cols=3,
+        cols=components_size,
         specs=specs,
         row_heights=row_heights,
         horizontal_spacing=0,
@@ -425,25 +482,28 @@ def animate(
         showlegend=False,
         transition=dict(duration=0, easing="linear", ordering="traces first"),
         font=dict(family="Comic Sans MS, Droid Sans, sans-serif", size=24),
-        # annotations=[*weight_annotations(model_node, height, None, None, show=show_model, theme=theme)],
-        plot_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0, 0, 0, 0)",
         xaxis=dict(showticklabels=False, scaleanchor="y", scaleratio=1),
         yaxis=dict(showticklabels=False),
     )
 
-    feature_colors = theme.feature_colors
-
     scene = dict(
-        camera=dict(eye=frame.get_eye(), projection=dict(type="orthographic")),
+        camera=dict(eye=frame.get_eye(as_dict=True), projection=dict(type="orthographic")),
         aspectmode="manual",
-        aspectratio=frame.get_aspect_ratio(),
+        aspectratio=frame.get_aspect_ratio(as_dict=True),
         xaxis_title="",
         yaxis_title="",
         zaxis_title="",
-        xaxis=dict(backgroundcolor=feature_colors[1], range=frame.get_range(dim=0, pad=True)),
-        yaxis=dict(backgroundcolor=feature_colors[0], range=frame.get_range(dim=1, pad=True)),
+        xaxis=dict(
+            backgroundcolor=output_colors[0] if show_bg else transparent,
+            range=frame.get_range(dim=0, pad=True),
+        ),
+        yaxis=dict(
+            backgroundcolor=output_colors[-1] if show_bg else transparent,
+            range=frame.get_range(dim=1, pad=True),
+        ),
         zaxis=dict(
-            backgroundcolor=theme.target_color,
+            backgroundcolor=theme.target_color if show_bg else transparent,
             range=frame.get_zrange(pad=True),
             tickvals=[0, 0.5, 1],
         ),
@@ -451,35 +511,50 @@ def animate(
 
     fig.for_each_scene(lambda x: x.update(scene))
 
-    if show_components:
+    if show_weights:
         zoom = 3
 
-        weight_eyes = view.get_weight_eyes()
-        bias_eye = frame.get_bias_eye()
+        weight_eyes = view.get_weight_eyes(as_dict=True)
+        bias_eye = frame.get_bias_eye(as_dict=True)
 
-        fig.layout.scene2.update(
-            dict(aspectratio=dict(x=zoom, y=zoom, z=zoom / 2)),
-            camera=dict(eye=weight_eyes[0]),
-            xaxis=dict(showgrid=False, showticklabels=False),
-            yaxis=dict(title="", showgrid=False, showticklabels=False, range=frame.get_range(dim=1, pad=True)),
-            zaxis=dict(title="", showgrid=False, showticklabels=False),
-        )
+        for i in show_weights:
+            if isinstance(i, int):
+                fig.layout[f"scene{i + 1}"].update(
+                    aspectratio=dict(x=zoom, y=zoom, z=zoom / 2),
+                    camera=dict(eye=weight_eyes[i - 1]),
+                    xaxis=dict(
+                        showgrid=False,
+                        showticklabels=False,
+                        backgroundcolor=feature_colors[i - 1],
+                    ),
+                    yaxis=dict(
+                        title="",
+                        showgrid=False,
+                        showticklabels=False,
+                        range=frame.get_range(dim=1, pad=True),
+                        backgroundcolor=feature_colors[i - 1],
+                    ),
+                    zaxis=dict(title="", showgrid=False, showticklabels=False),
+                )
 
-        fig.layout.scene3.update(
-            dict(aspectratio=dict(x=zoom, y=zoom, z=zoom / 2)),
-            camera=dict(eye=weight_eyes[1]),
-            xaxis=dict(title="", showgrid=False, showticklabels=False, range=frame.get_range(dim=0, pad=True)),
-            yaxis=dict(showgrid=False, showticklabels=False),
-            zaxis=dict(title="", showgrid=False, showticklabels=False),
-        )
-
-        fig.layout.scene4.update(
-            dict(aspectratio=dict(x=zoom / 1.4, y=zoom / 1.4, z=zoom / 2)),
-            camera=dict(eye=bias_eye),
-            xaxis=dict(title="", showgrid=False, showticklabels=False),
-            yaxis=dict(title="", showgrid=False, showticklabels=False),
-            zaxis=dict(showticklabels=False, range=frame.get_bias_zrange(pad=True)),
-        )
+            elif i == "b":
+                fig.layout[f"scene{input_size + 2}"].update(
+                    aspectratio=dict(x=zoom / 1.4, y=zoom / 1.4, z=zoom / 2),
+                    camera=dict(eye=bias_eye),
+                    xaxis=dict(
+                        title="",
+                        showgrid=False,
+                        showticklabels=False,
+                        backgroundcolor=feature_colors[-1],
+                    ),
+                    yaxis=dict(
+                        title="",
+                        showgrid=False,
+                        showticklabels=False,
+                        backgroundcolor=feature_colors[0],
+                    ),
+                    zaxis=dict(showticklabels=False, range=frame.get_bias_zrange(pad=True)),
+                )
 
     def update_network():
         view = views["network"]

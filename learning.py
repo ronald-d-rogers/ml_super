@@ -13,6 +13,8 @@ def sigmoid_derivative(X):
     return sigmoid(X) * (1 - sigmoid(X))
 
 
-def predict(X, w, b, activity=1, activation=sigmoid):
+def predict(X, w, b, activity=None, activation=sigmoid):
+    if activity is None:
+        activity = 1
     preds = (w @ X.T) + b
     return (preds * (1 - activity)) + (activation(preds) * (activity))

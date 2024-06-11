@@ -1,6 +1,6 @@
+import numpy as np
 import torch
 
-from base import focusable_feature_colors
 from themes import default_theme
 
 
@@ -108,53 +108,67 @@ def inference_annotation(w, b, inference, show=True):
 def weight_annotations(
     w,
     b,
-    height,
-    focused_feature,
-    focus_labels,
-    show=True,
+    width,
+    feature_colors,
+    show_label_names=True,
+    label_precision=3,
+    label_yshift=0,
+    label_font_size=40,
     theme=default_theme,
+    show=True,
 ):
     if not show:
-        return [no_note, no_note, no_note]
-
-    if focus_labels:
-        feature_colors = theme.focused_feature_colors
-    else:
-        feature_colors = focusable_feature_colors(focused_feature, theme)
-
-    bias_color = theme.target_color
+        return []
 
     annotation = dict(
         yanchor="top",
         bordercolor="rgba(0,0,0,.8)",
         borderwidth=2,
-        font=dict(size=40),
+        yshift=300 + label_yshift,
+        font=dict(size=label_font_size),
         showarrow=False,
     )
 
-    return [
+    count = w.size(0) + 1
+
+    start = width / (count * 2)
+
+    xs = np.linspace(start, width - start, w.size(0) + 1)
+
+    notes = []
+
+    for i, x in enumerate(xs[:-1]):
+        text = f"<b>{w[i]:.{label_precision}f}</b>"
+        if show_label_names:
+            text = f"w{i+1}: " + text
+
+        notes.append(
+            dict(
+                **annotation,
+                x=0,
+                y=0,
+                xshift=x,
+                xanchor="center",
+                bgcolor=feature_colors[i],
+                text=text,
+            )
+        )
+
+    text = f"<b>{b[0]:.{label_precision}f}</b>"
+    if show_label_names:
+        text = "bias: " + text
+
+    notes.append(
         dict(
             **annotation,
-            x=0.05,
-            xanchor="left",
-            y=1 - (60 / height),
-            bgcolor=feature_colors[0],
-            text=f"Feature 1: <b>{w[0]:1.3f}</b>",
-        ),
-        dict(
-            **annotation,
-            x=1 - 0.05,
-            xanchor="right",
-            y=1 - (60 / height),
-            bgcolor=feature_colors[1],
-            text=f"Feature 2: <b>{w[1]:1.3f}</b>",
-        ),
-        dict(
-            **annotation,
-            x=1 - 0.05,
-            y=1 - (768 / height),
-            bgcolor=bias_color,
-            text=f"bias: <b>{b[0]:1.3f}</b>",
+            x=0,
+            y=0,
+            xshift=xs[-1],
+            xanchor="center",
+            bgcolor=theme.target_color,
+            text=text,
             font_color=theme.target_text_color,
-        ),
-    ]
+        )
+    )
+
+    return notes
