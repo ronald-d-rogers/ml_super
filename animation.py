@@ -235,14 +235,14 @@ def make_frame(frame: Frame, animation: Animation, name: str):
             scene=dict(
                 camera=dict(eye=eye),
                 aspectratio=dict(x=frame.aspect_ratio[0], y=frame.aspect_ratio[1], z=frame.aspect_ratio[2]),
-                xaxis_title="",
-                yaxis_title="",
                 zaxis_title="",
                 xaxis=dict(
+                    color=feature_colors[0],
                     backgroundcolor=output_colors[0] if show_bg else transparent,
                     range=frame.get_range(dim=0, pad=True),
                 ),
                 yaxis=dict(
+                    color=feature_colors[1],
                     backgroundcolor=output_colors[-1] if show_bg else transparent,
                     range=frame.get_range(dim=1, pad=True),
                 ),
@@ -483,8 +483,8 @@ def animate(
         transition=dict(duration=0, easing="linear", ordering="traces first"),
         font=dict(family="Comic Sans MS, Droid Sans, sans-serif", size=24),
         plot_bgcolor="rgba(0, 0, 0, 0)",
-        xaxis=dict(showticklabels=False, scaleanchor="y", scaleratio=1),
-        yaxis=dict(showticklabels=False),
+        xaxis=dict(color=feature_colors[0], showticklabels=False, scaleanchor="y", scaleratio=1),
+        yaxis=dict(color=feature_colors[1], showticklabels=False),
     )
 
     scene = dict(
@@ -495,11 +495,13 @@ def animate(
         yaxis_title="",
         zaxis_title="",
         xaxis=dict(
-            backgroundcolor=output_colors[0] if show_bg else transparent,
+            color=feature_colors[0],
+            backgroundcolor=output_colors[-1] if show_bg else transparent,
             range=frame.get_range(dim=0, pad=True),
         ),
         yaxis=dict(
-            backgroundcolor=output_colors[-1] if show_bg else transparent,
+            color=feature_colors[1],
+            backgroundcolor=output_colors[0] if show_bg else transparent,
             range=frame.get_range(dim=1, pad=True),
         ),
         zaxis=dict(
@@ -523,6 +525,7 @@ def animate(
                     aspectratio=dict(x=zoom, y=zoom, z=zoom / 2),
                     camera=dict(eye=weight_eyes[i - 1]),
                     xaxis=dict(
+                        title="",
                         showgrid=False,
                         showticklabels=False,
                         backgroundcolor=feature_colors[i - 1],
@@ -599,23 +602,31 @@ def animate(
         if show_network:
             update_network()
 
-        control_args = dict(frame=dict(duration=50, redraw=True), transition=dict(duration=0), mode="immediate")
+        play_args = dict(frame=dict(duration=50, redraw=True), transition=dict(duration=0), mode="immediate")
+        pause_args = dict(frame=dict(duration=0, redraw=False), mode="immediate")
 
         sliders = [
             dict(
+                font=dict(size=16),
                 steps=[
-                    dict(label=i, method="animate", args=[[i, control_args], dict(mode="immediate")])
+                    dict(label=i, method="animate", args=[[i, play_args], dict(mode="immediate")])
                     for i, _ in enumerate(fig.frames)
-                ]
+                ],
             )
         ]
 
         menu = dict(
             type="buttons",
             xanchor="center",
+            direction="right",
             x=0.5,
             y=0,
-            buttons=[dict(label="Play", method="animate", args=[None, control_args])],
+            showactive=True,
+            font=dict(size=16),
+            buttons=[
+                dict(label="Play", method="animate", args=[None, play_args]),
+                dict(label="Pause", method="animate", args=[None, pause_args]),
+            ],
         )
 
         fig.update_layout(updatemenus=[menu], sliders=sliders)

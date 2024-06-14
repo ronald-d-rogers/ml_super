@@ -1,4 +1,5 @@
 import torch
+import math
 
 
 def loss(preds, targets):
@@ -18,3 +19,8 @@ def predict(X, w, b, activity=None, activation=sigmoid):
         activity = 1
     preds = (w @ X.T) + b
     return (preds * (1 - activity)) + (activation(preds) * (activity))
+
+
+def xavier_init(low, hi):
+    limit = math.sqrt(6 / float(low + hi))
+    return (-limit - limit) * torch.rand(size=(low, hi)) + limit

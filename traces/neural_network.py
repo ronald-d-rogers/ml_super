@@ -10,29 +10,27 @@ def activations(frame: Frame, animation: Animation, name="activations", meta=Non
     modules = frame.modules
     activations = frame.activations
 
-    # preds = frame.preds
-    # active_preds = frame.active_preds
+    domain = 2
+    res = 40
 
-    y_ls = torch.linspace(-2, 2, 40)
-    x_ls = torch.linspace(-0.15, 0.15, 40)
-
-    w = frame.w
+    y_ls = torch.linspace(-domain, domain, res)
+    x_ls = torch.linspace(-1, 1, res)
 
     activation_lines = []
-    # error_markers = []
 
     for module in modules[1:]:
         activation = activations[module]
-        for i, weights in enumerate(w[module]):
+        for i, w in enumerate(frame.w[module]):
+            ls = y_ls.expand(w.size(0), -1)
+
+            preds = w @ ls
+            preds = activation(preds + frame.b[module][i])
+
             node_point = node_points[module][i]
-            preds = activation(weights @ y_ls.expand(weights.size(0), -1))
             line = []
-            # if i in active_preds[module]:
-            #     pred = activation(weights @ errors[module][i])
-            #     error_markers.append(activation())
             for j in range(preds.size(0)):
-                x = node_point[0] + x_ls[j]
-                y = (node_point[1] + (preds[j].item() / 5)) - (0.5 / 5)
+                x = node_point[0] + (x_ls[j] / 6.666)
+                y = (node_point[1] + (preds[j].item() / 6.666)) - (0.5 / 6.666)
                 line.append((x, y))
             activation_lines.append(line)
 

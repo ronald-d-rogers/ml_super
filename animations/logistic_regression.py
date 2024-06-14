@@ -3,7 +3,7 @@ from sklearn.datasets import make_blobs
 import numpy as np
 
 from base import Frame
-from learning import predict
+from learning import predict, sigmoid
 from utils import ease_in, ease_out, orbit
 from numpy import linspace as ls
 
@@ -59,6 +59,8 @@ def get_animation(
     show_profile = False
     show_decision_boundaries = False
 
+    activations = {"output": sigmoid}
+
     initial_targets = targets.clone()
     initial_eye = eye
     initial_aspect_ratio = aspect_ratio
@@ -66,14 +68,16 @@ def get_animation(
     def capture(count=1):
         frame = Frame(
             X=X,
-            preds={"output": preds.unsqueeze(0)},
-            targets=targets.unsqueeze(0),
+            preds={"output": preds.clone().unsqueeze(0)},
+            targets=targets.clone().unsqueeze(0),
             w={"output": w.clone().unsqueeze(0)},
             b={"output": torch.Tensor([[b]])},
             epochs=epochs,
             learning_rate=learning_rate,
+            modules=["input", "output"],
             size={"input": 2, "output": 1},
             inference=inference.clone() if inference is not None else None,
+            activations=activations,
             activity=activity,
             focused_preds={"output": [focused_preds.copy()]} if focused_preds is not None else None,
             focused_errors={"output": [focused_errors.copy()]} if focused_errors is not None else None,
@@ -104,6 +108,7 @@ def get_animation(
 
         focus_targets = False
         focused_preds = None
+        focused_errors = None
 
         capture(10)
 
@@ -118,6 +123,7 @@ def get_animation(
 
         focus_targets = False
         focused_preds = None
+        focused_errors = None
 
         capture(10)
 
@@ -136,13 +142,13 @@ def get_animation(
             aspect_ratio = (ax, ay, az)
             capture()
 
-        linear_targets = predict(X, torch.Tensor([[0.05, -0.05]]), 0.5, 1)
+        linear_targets = predict(X, torch.Tensor([0.05, -0.05]), 0.5, 1)
 
         for i in ls(0, 1, 10):
             targets = initial_targets + ((linear_targets - initial_targets) * i)
             capture()
 
-        for i, j, k in zip(ls(w[0][0], 0.05, 10), ls(w[0][1], -0.05, 10), ls(b[0][0], 0.5, 10)):
+        for i, j, k in zip(ls(w[0], 0.05, 10), ls(w[1], -0.05, 10), ls(b, 0.5, 10)):
             w[0] = i
             w[1] = j
             b = k
@@ -154,9 +160,7 @@ def get_animation(
             capture()
 
         capture(10)
-
         show_profile = True
-        focused_preds = list(range(m))
         focused_errors = list(range(m))
 
         capture(20)
@@ -167,21 +171,19 @@ def get_animation(
             ease_in(ls(0, 1, 10)),
             ls(w[0], 0.5, 10),
             ls(w[1], -0.5, 10),
-            ls(b[0], 0.5, 10),
+            ls(b, 0.5, 10),
         ):
             activity = s
             w[0] = i
             w[1] = j
-            b[0] = k
+            b = k
             preds = predict(X, w, b, activity)
             capture()
-
-        focused_preds = list(range(m))
-        focused_errors = list(range(m))
 
         capture(15)
 
         focused_preds = None
+        focused_errors = None
         show_profile = False
 
         capture(10)
@@ -195,13 +197,13 @@ def get_animation(
             ls(aspect_ratio[2], initial_aspect_ratio[2], 5),
             ls(w[0], 0, 5),
             ls(w[1], 0, 5),
-            ls(b[0], 0.5, 5),
+            ls(b, 0.5, 5),
         ):
             eye = (eye_x, eye_y, eye_z)
             aspect_ratio = (ax, ay, az)
             w[0] = i
             w[1] = j
-            b[0] = k
+            b = k
             preds = predict(X, w, b, activity)
             capture()
 
@@ -214,14 +216,14 @@ def get_animation(
     # The more the 0s and 1s are separated in a single feature the more the plane will be fit to it minimizing error.
     if "weights" in chapters:
         for i in ls(w[1], -0.25, 10):
-            w[0][1] = i
+            w[1] = i
             preds = predict(X, w, b, activity)
             capture()
 
         capture(5)
 
         for i in ls(w[1], -2, 10):
-            w[0][1] = i
+            w[1] = i
             preds = predict(X, w, b, activity)
             capture()
 
@@ -258,7 +260,7 @@ def get_animation(
             preds = predict(X, w, b, activity)
             capture()
 
-        for i, j in zip(ls(w[0], 0.5, 15), ls(w[0][1], -1.5, 15)):
+        for i, j in zip(ls(w[0], 0.5, 15), ls(w[1], -1.5, 15)):
             w[0] = i
             w[1] = j
             preds = predict(X, w, b, activity)
@@ -283,6 +285,7 @@ def get_animation(
         capture(30)
 
         focused_preds = None
+        focused_errors = None
         focus_costs = False
         show_decision_boundaries = False
 
@@ -300,7 +303,7 @@ def get_animation(
         for i, j, k in zip(ls(w[0], 0, 10), ls(w[1], 0, 10), ls(b, 0.5, 10)):
             w[0] = i
             w[1] = j
-            b[0] = k
+            b = k
             preds = predict(X, w, b, activity)
             capture()
 
@@ -405,6 +408,7 @@ def get_animation(
 
         focused_feature = None
         focused_preds = None
+        focused_errors = None
 
         capture()
 
@@ -446,7 +450,11 @@ def get_animation(
             focus_labels = True
             new_w = w - learning_rate * ((1 / m) * ((preds - targets) @ X))
             new_b = b - learning_rate * ((1 / m) * torch.sum(preds - targets))
-            for i, j, k in zip(ls(w[0], new_w[0], 3), ls(w[1], new_w[1], 3), ls(b, new_b, 3)):
+            for i, j, k in zip(
+                ls(w[0], new_w[0], 3),
+                ls(w[1], new_w[1], 3),
+                ls(b, new_b, 3),
+            ):
                 w = torch.Tensor([i, j])
                 b = k
                 capture()

@@ -16,20 +16,23 @@ def cost_tables(
     preds = view.preds
     targets = view.targets
     focus_costs = frame.focus_costs
+    modules = frame.modules
+    size = frame.size
     lr = frame.learning_rate
     class_colors = animation.theme.class_colors
 
     focused_preds = view.focused_preds
-    feature_colors = animation.focusable_colors(frame.focused_feature)
+    feature_colors = animation.focusable_colors(frame.focused_feature, size[modules[-2]])
 
-    X = X[focused_preds]
-    targets = targets[focused_preds]
-    preds = preds[focused_preds]
+    X = X if not focused_preds else X[focused_preds]
+
+    targets = targets if not focused_preds else targets[focused_preds]
+    preds = preds if not focused_preds else preds[focused_preds]
 
     m = X.size(0)
 
     errors = targets - preds
-    loss = torch.stack((errors * X[:, 0], errors * X[:, 1]), dim=0)
+    loss = torch.stack((errors.T * X[:, 0], errors.T * X[:, 1]), dim=0)
     total_loss = torch.sum(loss, dim=1)
 
     font_size = 30

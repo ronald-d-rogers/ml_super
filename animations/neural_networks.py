@@ -1,8 +1,10 @@
+import random
 import torch
 
 from base import Frame
 from learning import predict, sigmoid, sigmoid_derivative
 from numpy import linspace as ls
+import numpy as np
 
 from utils import clone
 
@@ -67,6 +69,8 @@ def get_animation(
     frames = []
 
     torch.manual_seed(42)
+    np.random.seed(0)
+    random.seed(0)
 
     activations = {"hidden": sigmoid, "output": sigmoid}
 
@@ -109,8 +113,6 @@ def get_animation(
     learning_rate = 1
 
     aspect_ratio = (1.8, 1.8, 0.6)
-    # final_eye = (2, 0.64, 0)
-    # final_aspect_ratio = tuple(x + 0.2 for x in aspect_ratio)
 
     preds = {"output": None, "hidden": None}
     derivatives = {"output": None, "hidden": None}
@@ -558,6 +560,7 @@ def get_animation(
 
     if "gaussian" in chapters:
         torch.manual_seed(6)
+
         eye = initial_eye
 
         X, targets = make_circles(30, factor=0.1, noise=0.1)
@@ -566,21 +569,24 @@ def get_animation(
         targets = torch.from_numpy(targets).float().unsqueeze(0)
         m = X.size(0)
 
+        size = {"input": 2, "hidden": 3, "output": 1}
+
         w = {
             "hidden": torch.randn(size["hidden"], size["input"]),
             "output": torch.randn(size["output"], size["hidden"]),
         }
 
-        b = {"hidden": torch.zeros((size["hidden"], 1)), "output": torch.zeros((size["output"], 1))}
+        b = {
+            "hidden": torch.zeros((size["hidden"], 1)),
+            "output": torch.zeros((size["output"], 1)),
+        }
 
         activations = {"hidden": sigmoid, "output": sigmoid}
 
-        preds["hidden"] = predict(X, w["hidden"], b["hidden"], activations=activations["hidden"])
-        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"], activations=activations["output"])
+        preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
 
         learning_rate = 2.5
-
-        size = {"input": 2, "hidden": 3, "output": 1}
 
         costs = {
             "output": torch.zeros(size["output"], size["hidden"]),
