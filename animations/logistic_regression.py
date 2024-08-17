@@ -3,7 +3,7 @@ from sklearn.datasets import make_blobs
 import numpy as np
 
 from base import Frame
-from learning import predict, sigmoid
+from learning import log_loss, predict, sigmoid, squared_loss
 from utils import ease_in, ease_out, orbit
 from numpy import linspace as ls
 
@@ -32,6 +32,8 @@ def get_animation(
     w = torch.Tensor([0, 0])
     b = 0.5
     preds = predict(X, w, b, activity=0)
+
+    loss = None
 
     epochs = 30
     learning_rate = 0.1
@@ -79,6 +81,7 @@ def get_animation(
             inference=inference.clone() if inference is not None else None,
             activations=activations,
             activity=activity,
+            loss=loss.clone() if loss is not None else None,
             focused_preds={"output": [focused_preds.copy()]} if focused_preds is not None else None,
             focused_errors={"output": [focused_errors.copy()]} if focused_errors is not None else None,
             focused_feature=focused_feature,
@@ -130,6 +133,11 @@ def get_animation(
     # Fitting a plane to the data works well linear data but when the targets just 1s and 0s, the error is too high,
     # so we tilt the plane up and squash with the logistic function.
     if "logistic" in chapters:
+        linear_targets = predict(X, torch.Tensor([0.3, -0.3]), 0, 1)
+        targets = linear_targets
+        preds = predict(X, w, b, activity)
+        loss = (1 / m) * torch.nansum(squared_loss(preds, targets))
+
         for eye_x, eye_y, eye_z, ax, ay, az in zip(
             ls(eye[0], 1, 10),
             ls(eye[1], 0.682, 10),
@@ -142,25 +150,35 @@ def get_animation(
             aspect_ratio = (ax, ay, az)
             capture()
 
-        linear_targets = predict(X, torch.Tensor([0.05, -0.05]), 0.5, 1)
+        show_profile = True
+        focused_errors = list(range(m))
 
-        for i in ls(0, 1, 10):
-            targets = initial_targets + ((linear_targets - initial_targets) * i)
-            capture()
+        # for i in ls(0, 1, 10):
+        #     targets = initial_targets + ((linear_targets - initial_targets) * i)
+        #     preds = predict(X, w, b, activity)
+        #     loss = (1 / m) * torch.nansum(squared_loss(preds, targets))
+        #     capture()
+
+        capture(10)
 
         for i, j, k in zip(ls(w[0], 0.05, 10), ls(w[1], -0.05, 10), ls(b, 0.5, 10)):
             w[0] = i
             w[1] = j
             b = k
             preds = predict(X, w, b, activity)
-            capture()
-
-        for i in ease_out(ls(1, 0, 10)):
-            targets = initial_targets + ((linear_targets - initial_targets) * i)
+            loss = (1 / m) * torch.nansum(squared_loss(preds, targets))
             capture()
 
         capture(10)
-        show_profile = True
+
+        for i in ease_out(ls(1, 0, 10)):
+            targets = initial_targets + ((linear_targets - initial_targets) * i)
+            preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
+            capture()
+
+        capture(10)
+
         focused_errors = list(range(m))
 
         capture(20)
@@ -168,7 +186,7 @@ def get_animation(
         focused_preds = None
 
         for s, i, j, k in zip(
-            ease_in(ls(0, 1, 10)),
+            ease_out(ls(0, 1, 10)),
             ls(w[0], 0.5, 10),
             ls(w[1], -0.5, 10),
             ls(b, 0.5, 10),
@@ -178,6 +196,7 @@ def get_animation(
             w[1] = j
             b = k
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         capture(15)
@@ -205,6 +224,7 @@ def get_animation(
             w[1] = j
             b = k
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         activity = 0
@@ -218,6 +238,7 @@ def get_animation(
         for i in ls(w[1], -0.25, 10):
             w[1] = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         capture(5)
@@ -225,6 +246,7 @@ def get_animation(
         for i in ls(w[1], -2, 10):
             w[1] = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         capture(10)
@@ -232,6 +254,7 @@ def get_animation(
         for i in ease_in(ls(0, 1, 10)):
             activity = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         capture(30)
@@ -241,29 +264,34 @@ def get_animation(
             w[1] = j
             activity = k
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i, j in zip(ls(w[0], 0.5, 15), ls(w[1], -1.5, 15)):
             w[0] = i
             w[1] = j
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i in ease_in(ls(0, 1, 5)):
             activity = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i, j in zip(ls(w[0], 1.5, 15), ls(w[1], -0.5, 15)):
             w[0] = i
             w[1] = j
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i, j in zip(ls(w[0], 0.5, 15), ls(w[1], -1.5, 15)):
             w[0] = i
             w[1] = j
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for eye_x, eye_y, eye_z, ax, ay, az in zip(
@@ -305,6 +333,7 @@ def get_animation(
             w[1] = j
             b = k
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         activity = 0
@@ -317,17 +346,20 @@ def get_animation(
         for i in ls(b, 0.9, 10):
             b = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i in ls(b, 0.1, 10):
             b = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i, j in zip(ls(w[0], 0.5, 10), ls(w[1], -0.5, 10)):
             w[0] = i
             w[1] = j
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         capture(5)
@@ -335,11 +367,13 @@ def get_animation(
         for i in ls(b, 5, 10):
             b = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i in ls(b, -5, 10):
             b = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         capture(10)
@@ -353,12 +387,14 @@ def get_animation(
             w[0] = i
             w[1] = j
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i, j in zip(ls(w[0], 2, 7), ls(w[1], -1, 7)):
             w[0] = i
             w[1] = j
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         capture(5)
@@ -368,11 +404,13 @@ def get_animation(
         for i in ls(b, 5, 7):
             b = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         for i in ls(b, -5, 7):
             b = i
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         capture(5)
@@ -382,6 +420,7 @@ def get_animation(
             w[1] = j
             b = k
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
         activity = 0
@@ -475,6 +514,7 @@ def get_animation(
             w -= learning_rate * ((1 / m) * ((preds - targets) @ X))
             b -= learning_rate * ((1 / m) * torch.sum(preds - targets))
             preds = predict(X, w, b, activity)
+            loss = (1 / m) * torch.nansum(log_loss(preds, targets))
             capture()
 
     # Now let's make a prediction. the points on the upper half are classified as 1 and the below half, 0.

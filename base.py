@@ -111,10 +111,14 @@ class Animation:
     show_bg: bool = True
     render_path: str = None
     show_weights: bool = True
+    show_gradients: bool = True
     show_component_preds: bool = False
     show_label_names: bool = True
     label_precision: int = 3
     label_yshift: int = 40
+    cost_label_xshift: int = 0
+    cost_label_yshift: int = 40
+    cost_label_xanchor: str = "left"
     label_font_size: int = 24
     marker_size: int = 30
     line_width: int = 10
@@ -271,6 +275,7 @@ class Frame:
     errors: Dict[str, torch.Tensor] = None
     losses: Dict[str, torch.Tensor] = None
     costs: Dict[str, torch.Tensor] = None
+    loss: torch.Tensor = None
     w: Dict[str, torch.Tensor] = None
     b: Dict[str, torch.Tensor] = None
     activations: Dict[str, callable] = None

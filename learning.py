@@ -2,8 +2,12 @@ import torch
 import math
 
 
-def loss(preds, targets):
+def log_loss(preds, targets):
     return -((targets * torch.log(preds)) + ((1 - targets) * torch.log(1 - preds)))
+
+
+def squared_loss(preds, targets):
+    return (preds - targets) ** 2
 
 
 def sigmoid(X):

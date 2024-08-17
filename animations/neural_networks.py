@@ -95,11 +95,6 @@ def get_animation(
     }
     final_b = {"output": torch.Tensor([[-5.3260169029]]), "hidden": torch.Tensor([[-6.7141456604], [-6.7141456604]])}
 
-    activations = {
-        "hidden": [sigmoid for _ in range(size["hidden"])],
-        "output": [sigmoid for _ in range(size["output"])],
-    }
-
     eye = initial_eye
     weight_eyes = None
     neuron_weight_eyes = ((0, 1, 0), (1, 0, 0))
@@ -558,8 +553,8 @@ def get_animation(
 
         capture()
 
-    if "gaussian" in chapters:
-        torch.manual_seed(6)
+    if "fail-guassian" in chapters:
+        torch.manual_seed(20)
 
         eye = initial_eye
 
@@ -619,6 +614,184 @@ def get_animation(
 
             preds["hidden"] = predict(X, w["hidden"], b["hidden"])
             preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+            # get 30 frames given any number of epochs
+            count = epochs // 30
+            remainder = epochs % count
+            if i % count == remainder:
+                capture()
+
+        # show profile of the model
+        for z in ls(eye[2], 3, 10):
+            eye = (eye[0], eye[1], z)
+            capture()
+
+        torch.manual_seed(42)
+
+    if "guassian" in chapters:
+        torch.manual_seed(40)
+
+        eye = initial_eye
+
+        X, targets = make_circles(30, factor=0.1, noise=0.1)
+
+        X = torch.from_numpy(X).float()
+        targets = torch.from_numpy(targets).float().unsqueeze(0)
+        m = X.size(0)
+
+        size = {"input": 2, "hidden": 3, "output": 1}
+
+        w = {
+            "hidden": torch.randn(size["hidden"], size["input"]),
+            "output": torch.randn(size["output"], size["hidden"]),
+        }
+
+        b = {
+            "hidden": torch.zeros((size["hidden"], 1)),
+            "output": torch.zeros((size["output"], 1)),
+        }
+
+        activations = {"hidden": sigmoid, "output": sigmoid}
+
+        preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+        learning_rate = 2.5
+
+        costs = {
+            "output": torch.zeros(size["output"], size["hidden"]),
+            "hidden": torch.zeros(size["hidden"], size["input"]),
+        }
+
+        weight_eyes = None
+
+        capture()
+
+        learning_rate = 2.5
+        epochs = 1000
+        for i in range(epochs):
+            errors["output"] = preds["output"] - targets
+
+            dw = errors["output"] @ preds["hidden"].T
+            db = torch.sum(errors["output"])
+            costs["output"] = (1 / m) * learning_rate * dw
+
+            errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
+
+            dw1 = errors["hidden"] @ X
+            db1 = torch.sum(errors["hidden"])
+            costs["hidden"] = (1 / m) * learning_rate * dw1
+
+            w["output"] -= (1 / m) * learning_rate * dw
+            b["output"] -= (1 / m) * learning_rate * db
+            w["hidden"] -= (1 / m) * learning_rate * dw1
+            b["hidden"] -= (1 / m) * learning_rate * db1
+
+            preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+            preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+            # get 30 frames given any number of epochs
+            count = epochs // 30
+            remainder = epochs % count
+            if i % count == remainder:
+                capture()
+
+        # show profile of the model
+        for z in ls(eye[2], 3, 10):
+            eye = (eye[0], eye[1], z)
+            capture()
+
+        torch.manual_seed(42)
+
+    if "sgd" in chapters:
+        torch.manual_seed(20)
+
+        eye = initial_eye
+
+        X, targets = make_circles(30, factor=0.1, noise=0.1)
+
+        X = torch.from_numpy(X).float()
+        targets = torch.from_numpy(targets).float().unsqueeze(0)
+        m = X.size(0)
+
+        size = {"input": 2, "hidden": 3, "output": 1}
+
+        w = {
+            "hidden": torch.randn(size["hidden"], size["input"]),
+            "output": torch.randn(size["output"], size["hidden"]),
+        }
+
+        b = {
+            "hidden": torch.zeros((size["hidden"], 1)),
+            "output": torch.zeros((size["output"], 1)),
+        }
+
+        activations = {"hidden": sigmoid, "output": sigmoid}
+
+        preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+        preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+        learning_rate = 2.5
+
+        costs = {
+            "output": torch.zeros(size["output"], size["hidden"]),
+            "hidden": torch.zeros(size["hidden"], size["input"]),
+        }
+
+        weight_eyes = None
+
+        capture()
+
+        learning_rate = 2.5
+        epochs = 1000
+        batch_size = 5
+        for i in range(epochs):
+            for j in range(0, m, batch_size):
+                X_batch = X[j : j + batch_size]
+                targets_batch = targets[:, j : j + batch_size]
+
+                preds["hidden"] = predict(X_batch, w["hidden"], b["hidden"])
+                preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+                errors["output"] = preds["output"] - targets_batch
+
+                dw = errors["output"] @ preds["hidden"].T
+                db = torch.sum(errors["output"])
+                costs["output"] = (1 / batch_size) * learning_rate * dw
+
+                errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
+
+                dw1 = errors["hidden"] @ X_batch
+                db1 = torch.sum(errors["hidden"])
+                costs["hidden"] = (1 / batch_size) * learning_rate * dw1
+
+                w["output"] -= (1 / batch_size) * learning_rate * dw
+                b["output"] -= (1 / batch_size) * learning_rate * db
+                w["hidden"] -= (1 / batch_size) * learning_rate * dw1
+                b["hidden"] -= (1 / batch_size) * learning_rate * db1
+
+                preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+                preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
+
+            # errors["output"] = preds["output"] - targets
+
+            # dw = errors["output"] @ preds["hidden"].T
+            # db = torch.sum(errors["output"])
+            # costs["output"] = (1 / m) * learning_rate * dw
+
+            # errors["hidden"] = (w["output"].T @ errors["output"]) * (preds["hidden"] * (1 - preds["hidden"]))
+
+            # dw1 = errors["hidden"] @ X
+            # db1 = torch.sum(errors["hidden"])
+            # costs["hidden"] = (1 / m) * learning_rate * dw1
+
+            # w["output"] -= (1 / m) * learning_rate * dw
+            # b["output"] -= (1 / m) * learning_rate * db
+            # w["hidden"] -= (1 / m) * learning_rate * dw1
+            # b["hidden"] -= (1 / m) * learning_rate * db1
+
+            # preds["hidden"] = predict(X, w["hidden"], b["hidden"])
+            # preds["output"] = predict(preds["hidden"].T, w["output"], b["output"])
 
             # get 30 frames given any number of epochs
             count = epochs // 30

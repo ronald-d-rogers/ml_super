@@ -1,13 +1,13 @@
 import numpy as np
 import torch
 
-from themes import default_theme
+from themes import Theme, default_theme
 
 
 no_note = dict(visible=False, showarrow=False)
 
 
-def error_annotations(X, targets, preds, focused_errors, show=True):
+def prediction_annotations(X, targets, preds, focused_errors, theme=default_theme, show=True):
     m = X.size(0)
 
     if not show or not focused_errors:
@@ -22,8 +22,8 @@ def error_annotations(X, targets, preds, focused_errors, show=True):
             y=X[:, 1][i],
             z=z[i],
             yshift=40,
-            bgcolor="rgba(255,255,255,.8)",
-            bordercolor="rgba(0,0,0,.8)",
+            bgcolor=theme.note_background_color,
+            bordercolor=theme.note_border_color,
             text=f"<b>{float(targets[i] - pred):1.2f}</b>",
             align="center",
             font=dict(size=30),
@@ -59,7 +59,7 @@ def feature_annotations(
             yshift=40,
             text=f"<b>{targets[i] - preds[i]:1.2f}({float(X[i, t]):1.2f})</b>",
             bgcolor=feature_colors[t],
-            bordercolor="rgba(0,0,0,.8)",
+            bordercolor=theme.feature_note_border_color,
             align="center",
             font=dict(size=26),
             showarrow=False,
@@ -82,7 +82,13 @@ def feature_annotations(
     return annotations
 
 
-def inference_annotation(w, b, inference, show=True):
+def inference_annotation(
+    w,
+    b,
+    inference,
+    theme=default_theme,
+    show=True,
+):
     if not show:
         return [no_note]
 
@@ -97,8 +103,8 @@ def inference_annotation(w, b, inference, show=True):
             y=inference[1],
             z=pred,
             yshift=40,
-            bgcolor="rgba(255,255,255,.8)",
-            bordercolor="rgba(0,0,0,.8)",
+            bgcolor=theme.note_background_color,
+            bordercolor=theme.note_border_color,
             text=text,
             font=dict(size=30),
         )
@@ -122,7 +128,7 @@ def weight_annotations(
 
     annotation = dict(
         yanchor="top",
-        bordercolor="rgba(0,0,0,.8)",
+        bordercolor=theme.note_border_color,
         borderwidth=2,
         yshift=300 + label_yshift,
         font=dict(size=label_font_size),
@@ -172,3 +178,51 @@ def weight_annotations(
     )
 
     return notes
+
+
+def cost_annotation(
+    cost,
+    width,
+    show_label_names=True,
+    label_precision=3,
+    label_xanchor="left",
+    label_xshift=0,
+    label_yshift=0,
+    label_font_size=40,
+    theme=default_theme,
+    show=True,
+):
+    if not show:
+        return []
+
+    annotation = dict(
+        yanchor="top",
+        bordercolor=theme.note_border_color,
+        borderwidth=2,
+        yshift=label_yshift,
+        xshift=label_xshift,
+        font=dict(size=label_font_size),
+        showarrow=False,
+    )
+
+    if cost is None:
+        return []
+    else:
+        cost = cost.item()
+
+    text = f"<b>{cost:.{label_precision}f}</b>"
+    if show_label_names:
+        text = "loss: " + text
+
+    return [
+        dict(
+            **annotation,
+            x=0,
+            y=0,
+            # xshift=0,
+            xanchor=label_xanchor,
+            bgcolor=theme.target_color,
+            text=text,
+            font_color=theme.target_text_color,
+        )
+    ]
