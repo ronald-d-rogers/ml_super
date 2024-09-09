@@ -4,16 +4,16 @@ import tqdm
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-from scenes.base import Scene
-from scenes.gradients import GradientScene, gradient_traces
-from scenes.losses import CostScene, LossesScene, loss_traces
-from scenes.nn.frame import NeuralNetworkScene
-from scenes.nn.traces import nn_traces
+from components.base import SceneComponent
+from components.gradients import GradientComponent, gradient_traces
+from components.losses import CostComponent, LossesComponent, loss_traces
+from components.nn.frame import NeuralNetworkScene
+from components.nn.traces import nn_traces
 from themes import Theme, default_theme, merge_themes, themes
-from scenes.model.traces import model_surface, weights_traces
-from scenes.nn.annotations import nn_annotations
+from components.model.traces import model_surface, weights_traces
+from components.nn.annotations import nn_annotations
 
-from scenes.model.frame import ModelScene, WeightsAndBiasesScene
+from components.model.frame import ModelComponent, WeightsAndBiasesComponent
 
 from base import AnimationFrame, Animation, NodeView
 from utils import TRANSPARENT
@@ -105,7 +105,7 @@ def make_frame(frame: AnimationFrame, animation: Animation, name: str):
     return value
 
 
-def get_specs(scenes: List[Scene], num_columns: int):
+def get_specs(scenes: List[SceneComponent], num_columns: int):
     return [
         dict(type=scene.scene_types[col]) if col < len(scene.scene_types) else None
         for col in range(num_columns)
@@ -120,7 +120,7 @@ def get_scene_key(index: int):
 
 
 class Layout:
-    scenes: List[Scene] = []
+    scenes: List[SceneComponent] = []
 
     _positions: dict = {}
     _specs = List[dict]
@@ -151,10 +151,10 @@ class Layout:
     def __init__(self, layout: List[str], animation: Animation):
         self.animation = animation
 
-    def add_scene(self, scene: Scene):
+    def add_scene(self, scene: SceneComponent):
         self._columns = max(self._columns, scene.columns)
 
-        self.scenes.append(scene)
+        self.components.append(scene)
 
     def create_figure(self) -> go.Figure:
         fig = make_subplots(
@@ -194,9 +194,9 @@ class Layout:
             for scene_type in scene.scene_types:
                 if scene_type == "scene":
                     scene_counter += 1
-                    fig[get_scene_key(scene_counter)].update(scene.create_scenes())
+                    fig[get_scene_key(scene_counter)].update(scene.create_component())
 
-        fig[get_scene_key(scene_counter)].update(self.scenes[scene_counter].create_scenes())
+        fig[get_scene_key(scene_counter)].update(self.scenes[scene_counter].create_component())
 
     def render_frames(self) -> List[go.Frame]:
         pass
@@ -272,20 +272,20 @@ def animate(
     scenes = []
 
     if show_model:
-        scenes.append(ModelScene(animation))
+        components.append(ModelComponent(animation))
 
     if show_parameters:
-        scenes.append(WeightsAndBiasesScene(animation, parameters=show_parameters))
+        components.append(WeightsAndBiasesComponent(animation, parameters=show_parameters))
 
     if show_gradients:
-        scenes.append(GradientScene(animation))
+        components.append(GradientComponent(animation))
 
     if show_tables:
-        scenes.append(LossesScene(animation))
-        scenes.append(CostScene(animation))
+        components.append(LossesComponent(animation))
+        components.append(CostComponent(animation))
 
     if show_network:
-        scenes.append(NeuralNetworkScene(animation))
+        components.append(NeuralNetworkScene(animation))
 
     if not render_path:
         height += controls_height

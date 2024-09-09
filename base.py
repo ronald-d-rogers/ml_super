@@ -3,7 +3,7 @@ import numpy as np
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple, List, Union
 
-from scenes.base import Scene
+from components.base import SceneComponent
 from themes import Theme, default_theme
 from utils import clone, hex_to_rgb, interp_rgb, rgb_to_str
 
@@ -116,7 +116,7 @@ class Animation:
     show_label_names: bool = True
     theme: Theme = default_theme
     cells: dict = field(default_factory=dict)
-    scene: List[Scene] = field(default_factory=list)
+    scene: List[SceneComponent] = field(default_factory=list)
 
     _node_module = None
     _node_index = None
