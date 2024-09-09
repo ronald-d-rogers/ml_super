@@ -1,7 +1,8 @@
 import numpy as np
 import torch
+import plotly.graph_objs as go
 
-from themes import Theme, default_theme
+from themes import default_theme
 
 
 no_note = dict(visible=False, showarrow=False)
@@ -17,7 +18,7 @@ def prediction_annotations(X, targets, preds, focused_errors, theme=default_them
     z = [pred if t == 0 else t for t, pred in zip(targets, preds)]
 
     return [
-        dict(
+        go.layout.scene.Annotation(
             x=X[:, 0][i],
             y=X[:, 1][i],
             z=z[i],
@@ -52,7 +53,7 @@ def feature_annotations(
     m = X.size(0)
 
     def annotate(i, t, x, y, z):
-        return dict(
+        return go.layout.scene.Annotation(
             x=x,
             y=y,
             z=z,
@@ -98,7 +99,7 @@ def inference_annotation(
     pred = torch.sigmoid((inference @ w.T) + b).item()
     text = f"<b>{pred:.2f} {'>' if pred > 0.5 else '<'} 0.5</b>"
     return [
-        dict(
+        go.layout.scene.Annotation(
             x=inference[0],
             y=inference[1],
             z=pred,
@@ -126,7 +127,7 @@ def weight_annotations(
     if not show:
         return []
 
-    annotation = dict(
+    annotation = go.layout.Annotation(
         yanchor="top",
         bordercolor=theme.note_border_color,
         borderwidth=2,
@@ -149,7 +150,7 @@ def weight_annotations(
             text = f"w{i+1}: " + text
 
         notes.append(
-            dict(
+            go.layout.Annotation(
                 **annotation,
                 x=0,
                 y=0,
@@ -165,7 +166,7 @@ def weight_annotations(
         text = "bias: " + text
 
     notes.append(
-        dict(
+        go.layout.Annotation(
             **annotation,
             x=0,
             y=0,
@@ -180,9 +181,8 @@ def weight_annotations(
     return notes
 
 
-def cost_annotation(
-    cost,
-    width,
+def loss_annotation(
+    loss,
     show_label_names=True,
     label_precision=3,
     label_xanchor="left",
@@ -195,7 +195,7 @@ def cost_annotation(
     if not show:
         return []
 
-    annotation = dict(
+    annotation = go.layout.Annotation(
         yanchor="top",
         bordercolor=theme.note_border_color,
         borderwidth=2,
@@ -205,17 +205,17 @@ def cost_annotation(
         showarrow=False,
     )
 
-    if cost is None:
+    if loss is None:
         return []
     else:
-        cost = cost.item()
+        loss = loss.item()
 
-    text = f"<b>{cost:.{label_precision}f}</b>"
+    text = f"<b>{loss:.{label_precision}f}</b>"
     if show_label_names:
         text = "loss: " + text
 
     return [
-        dict(
+        go.layout.Annotation(
             **annotation,
             x=0,
             y=0,

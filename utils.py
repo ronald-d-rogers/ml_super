@@ -3,6 +3,9 @@ import torch
 import numpy as np
 
 
+TRANSPARENT = "rgba(255,255,255,.1)"
+
+
 def ease_out(x):
     return np.sqrt(1 - pow(x - 1, 2))
 

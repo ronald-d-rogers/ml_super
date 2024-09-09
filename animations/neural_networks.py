@@ -31,7 +31,7 @@ def get_animation(
             costs=clone(costs),
             w=clone(w),
             b=clone(b),
-            activations=clone(activations),
+            activation_fns=clone(activations),
             epochs=epochs,
             learning_rate=learning_rate,
             modules=clone(modules),

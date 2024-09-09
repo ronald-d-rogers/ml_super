@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple, List, Union
 
 
+from scenes.base import Scene
 from themes import Theme, default_theme
 from utils import clone, hex_to_rgb, interp_rgb, rgb_to_str
 
@@ -13,7 +14,7 @@ def parse_node_module(view_str: str):
 
 
 def parse_node_index(view_str: str):
-    return int(view_str.split("_")[1])
+    return int(view_str.split("_")[1]) - 1
 
 
 def get_domain(X):
@@ -78,7 +79,7 @@ def interp_colors(color1, color2, n):
 
 
 @dataclass
-class View:
+class NodeView:
     w: Dict[str, torch.Tensor]
     b: Dict[str, torch.Tensor]
     modules: List[str]
@@ -112,19 +113,12 @@ class Animation:
     render_path: str = None
     show_weights: bool = True
     show_gradients: bool = True
-    show_component_preds: bool = False
+    show_weights_preds: bool = False
     show_label_names: bool = True
-    label_precision: int = 3
-    label_yshift: int = 40
-    cost_label_xshift: int = 0
-    cost_label_yshift: int = 40
-    cost_label_xanchor: str = "left"
-    label_font_size: int = 24
-    marker_size: int = 30
-    line_width: int = 10
-    component_line_width: int = 5
     theme: Theme = default_theme
-    meta: dict = field(default_factory=dict)
+    cells: dict = field(default_factory=dict)
+    scene: List[Scene] = field(default_factory=list)
+
     _node_module = None
     _node_index = None
 
@@ -137,7 +131,7 @@ class Animation:
     @property
     def node_index(self):
         if self._node_index is None:
-            self._node_index = parse_node_index(self.model_node) - 1
+            self._node_index = parse_node_index(self.model_node)
         return self._node_index
 
     def colors(self, size: int):
@@ -247,7 +241,7 @@ class Animation:
                     f'Unsupported component "{component}". You may select a component from the following: "b", or an integer index of the compoennt.'
                 )
 
-        return View(
+        return NodeView(
             w=w,
             b=b,
             targets=frame.targets[0],
@@ -278,7 +272,8 @@ class Frame:
     loss: torch.Tensor = None
     w: Dict[str, torch.Tensor] = None
     b: Dict[str, torch.Tensor] = None
-    activations: Dict[str, callable] = None
+    loss_fn: callable = None
+    activation_fns: Dict[str, callable] = None
     size: Dict[str, int] = field(default_factory=lambda: {"input": 2, "hidden": 2, "output": 1})
     modules: List[str] = field(default_factory=lambda: ["input", "hidden", "output"])
     epochs: int = 30

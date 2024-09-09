@@ -4,7 +4,7 @@ from base import Animation, Frame
 import torch
 
 
-def neural_network_annotations(frame: Frame, animation: Animation, show=True):
+def nn_annotations(frame: Frame, animation: Animation, show=True):
     if not show:
         return []
 

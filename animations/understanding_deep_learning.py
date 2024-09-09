@@ -2,13 +2,13 @@ import random
 import torch
 
 from base import Frame
-from learning import predict, sigmoid, sigmoid_derivative
+from learning import bce_loss, predict, sigmoid
 from numpy import linspace as ls
 import numpy as np
 
 from utils import clone, orbit
 
-from sklearn.datasets import make_blobs, make_circles
+from sklearn.datasets import make_blobs
 
 all_chapters = ["1", "2", "3"]
 
@@ -31,7 +31,9 @@ def get_animation(
             costs=clone(costs),
             w=clone(w),
             b=clone(b),
-            activations=clone(activations),
+            activation_fns=clone(activations),
+            loss_fn=bce_loss,
+            loss=loss.clone(),
             epochs=epochs,
             learning_rate=learning_rate,
             modules=clone(modules),
@@ -131,6 +133,8 @@ def get_animation(
         w = {"output": torch.Tensor([[0, 0]])}
         b = {"output": torch.Tensor([[0.5]])}
 
+        modules = ["input", "output"]
+
         # create a randomly distributed of points with a z of either 0 and 1
         X = torch.rand(20, 2)
         targets = torch.randint(0, 2, (1, 20)).bool().float()
@@ -152,7 +156,7 @@ def get_animation(
         learning_rate = 0.5
 
         for _ in range(epochs):
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             w["output"] -= learning_rate * ((1 / m) * ((preds["output"] - targets) @ X))
             b["output"] -= learning_rate * ((1 / m) * torch.sum(preds["output"] - targets))
             preds["output"] = predict(X, w["output"], b["output"])
@@ -169,6 +173,8 @@ def get_animation(
         w = {"output": torch.Tensor([[0, 0]])}
         b = {"output": torch.Tensor([[0.5]])}
 
+        modules = ["input", "output"]
+
         X, targets = make_blobs(
             n_samples=20,
             centers=[(-1, 1), (1, -1)],
@@ -180,6 +186,7 @@ def get_animation(
         X = torch.from_numpy(X).float()
         targets = torch.from_numpy(targets).float().unsqueeze(0)
         preds = {"output": predict(X, w["output"], b["output"])}
+        loss = bce_loss(preds["output"], targets)
 
         m = X.size(0)
 
@@ -196,10 +203,10 @@ def get_animation(
         learning_rate = 0.5
 
         for _ in range(epochs):
-            costs["output"] = (preds["output"] - targets) @ X
             w["output"] -= learning_rate * ((1 / m) * ((preds["output"] - targets) @ X))
             b["output"] -= learning_rate * ((1 / m) * torch.sum(preds["output"] - targets))
             preds["output"] = predict(X, w["output"], b["output"])
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         # Now let's make a prediction. the points on the upper half are classified as 1 and the below half, 0.
@@ -243,6 +250,7 @@ def get_animation(
         w = {"output": torch.Tensor([[0.0, 0.0]])}
         b = {"output": torch.Tensor([[0.5]])}
         preds["output"] = predict(X, w["output"], b["output"])
+        loss = bce_loss(preds["output"], targets)
 
         focus_targets = True
 
@@ -253,62 +261,62 @@ def get_animation(
         for i in ls(w["output"][0][0], 0, 10):
             w["output"][0][0] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(w["output"][0][0], 1, 10):
             w["output"][0][0] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(w["output"][0][0], 0, 10):
             w["output"][0][0] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(w["output"][0][0], -1, 10):
             w["output"][0][0] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(w["output"][0][0], 0, 10):
             w["output"][0][0] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         # wiggle weight two up and down
         for i in ls(w["output"][0][1], 0, 10):
             w["output"][0][1] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(w["output"][0][1], 1, 10):
             w["output"][0][1] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(w["output"][0][1], 0, 10):
             w["output"][0][1] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(w["output"][0][1], -1, 10):
             w["output"][0][1] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(w["output"][0][1], 0, 10):
             w["output"][0][1] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         # first set the weights to bad values
@@ -317,26 +325,26 @@ def get_animation(
             w["output"][0][0] = i
             w["output"][0][1] = j
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         # wiggle bias up and down
         for i in ls(b["output"][0][0], -5, 10):
             b["output"][0][0] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(b["output"][0][0], 5, 10):
             b["output"][0][0] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         for i in ls(b["output"][0][0], 0.5, 10):
             b["output"][0][0] = i
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         # set the weights to decent values
@@ -344,7 +352,7 @@ def get_animation(
             w["output"][0][0] = i
             w["output"][0][1] = j
             preds["output"] = predict(X, w["output"], b["output"])
-            costs["output"] = (preds["output"] - targets) @ X
+            loss = bce_loss(preds["output"], targets)
             capture()
 
         preds["output"] = predict(X, w["output"], b["output"])

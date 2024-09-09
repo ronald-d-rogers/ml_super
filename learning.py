@@ -2,12 +2,14 @@ import torch
 import math
 
 
-def log_loss(preds, targets):
-    return -((targets * torch.log(preds)) + ((1 - targets) * torch.log(1 - preds)))
+def bce_loss(preds, targets, sum=True):
+    losses = -((targets * torch.log(preds)) + ((1 - targets) * torch.log(1 - preds)))
+    return losses if not sum else torch.nansum(losses)
 
 
-def squared_loss(preds, targets):
-    return (preds - targets) ** 2
+def mse_loss(preds, targets, sum=True):
+    losses = (preds - targets) ** 2
+    return losses if not sum else torch.nansum(losses)
 
 
 def sigmoid(X):
