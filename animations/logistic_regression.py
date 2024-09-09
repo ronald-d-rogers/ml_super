@@ -2,7 +2,7 @@ import torch
 from sklearn.datasets import make_blobs
 import numpy as np
 
-from base import Frame
+from base import AnimationFrame
 from learning import bce_loss, predict, sigmoid, mse_loss
 from utils import ease_in, ease_out, orbit
 from numpy import linspace as ls
@@ -68,7 +68,7 @@ def get_animation(
     initial_aspect_ratio = aspect_ratio
 
     def capture(count=1):
-        frame = Frame(
+        frame = AnimationFrame(
             X=X,
             preds={"output": preds.clone().unsqueeze(0)},
             targets=targets.clone().unsqueeze(0),

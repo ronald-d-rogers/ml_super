@@ -1,10 +1,10 @@
-from base import Animation, Frame
+from base import Animation, AnimationFrame
 
 
 import torch
 
 
-def nn_annotations(frame: Frame, animation: Animation, show=True):
+def nn_annotations(frame: AnimationFrame, animation: Animation, show=True):
     if not show:
         return []
 

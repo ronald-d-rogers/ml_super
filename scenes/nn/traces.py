@@ -1,10 +1,10 @@
 import torch
 import plotly.graph_objects as go
 
-from base import Animation, Frame
+from base import Animation, AnimationFrame
 
 
-def neural_network(frame: Frame, animation: Animation, name="neural-network", meta=None):
+def neural_network(frame: AnimationFrame, animation: Animation, name="neural-network", meta=None):
     size = frame.size
     node_points = frame.node_points
     focused_connections = frame.focused_connections
@@ -84,7 +84,7 @@ def neural_network(frame: Frame, animation: Animation, name="neural-network", me
     return [nodes, biases, *edges]
 
 
-def nn_activations(frame: Frame, animation: Animation, name="activations", meta=None):
+def nn_activations(frame: AnimationFrame, animation: Animation, name="activations", meta=None):
     node_points = frame.node_points
 
     modules = frame.modules
@@ -132,7 +132,7 @@ def nn_activations(frame: Frame, animation: Animation, name="activations", meta=
     ]
 
 
-def nn_traces(frame: Frame, animation: Animation):
+def nn_traces(frame: AnimationFrame, animation: Animation):
     if not animation.show_network:
         return []
 

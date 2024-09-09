@@ -1,9 +1,9 @@
-from base import Animation, Frame, NodeView
+from base import Animation, AnimationFrame, NodeView
 
 import plotly.graph_objects as go
 import torch
 
-from scenes.base import Scene, SceneUpdate
+from scenes.base import Scene, Frame
 
 
 class LossesScene(Scene):
@@ -11,11 +11,11 @@ class LossesScene(Scene):
     scene_types = ["table"]
     height = 768
 
-    def create_scenes(self, view: NodeView, frame: Frame):
+    def create_scenes(self, view: NodeView, frame: AnimationFrame):
         return []
 
-    def update_scenes(self, view: NodeView, frame: Frame):
-        return [SceneUpdate(scene=None, traces=losses_table(view, frame, self.animation), annotations=[])]
+    def update_scenes(self, view: NodeView, frame: AnimationFrame):
+        return [Frame(scene=None, traces=losses_table(view, frame, self.animation), annotations=[])]
 
 
 class CostScene(Scene):
@@ -23,16 +23,16 @@ class CostScene(Scene):
     scene_types = ["table"]
     height = 128
 
-    def create_scenes(self, view: NodeView, frame: Frame):
+    def create_scenes(self, view: NodeView, frame: AnimationFrame):
         []
 
-    def update_scenes(self, view: NodeView, frame: Frame):
-        return [SceneUpdate(scene=None, traces=cost_table(view, frame, self.animation), annotations=[])]
+    def update_scenes(self, view: NodeView, frame: AnimationFrame):
+        return [Frame(scene=None, traces=cost_table(view, frame, self.animation), annotations=[])]
 
 
 def losses_table(
     view: NodeView,
-    frame: Frame,
+    frame: AnimationFrame,
     animation: Animation,
     meta=None,
 ):
@@ -114,7 +114,7 @@ def losses_table(
     )
 
 
-def cost_table(view: NodeView, frame: Frame, animation: Animation, meta=None):
+def cost_table(view: NodeView, frame: AnimationFrame, animation: Animation, meta=None):
     X = frame.X
     m = X.size(0)
     preds = view.preds

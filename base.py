@@ -100,7 +100,7 @@ class NodeView:
 
 @dataclass
 class Animation:
-    frames: list["Frame"]
+    frames: list["AnimationFrame"]
     model_node: str = "output_1"
     show_model: bool = True
     show_network: bool = False
@@ -147,8 +147,8 @@ class Animation:
 
     def node_view(
         self,
-        frame: "Frame",
-        component: Union[int, str] = None,
+        frame: "AnimationFrame",
+        parameter: Union[int, str] = None,
         weight_eyes: Tuple[Tuple[float, float, float], ...] = None,
         activity: float = None,
     ):
@@ -207,26 +207,26 @@ class Animation:
 
             modules = [input, output]
 
-        if component is not None:
-            if isinstance(component, int):
-                component_index = component - 1
+        if parameter is not None:
+            if isinstance(parameter, int):
+                parameter_index = parameter - 1
 
                 # if we're viewing a node with hidden nodes
                 if not hidden == output and hidden in w:
                     mask = [0 for _ in range(frame.size[hidden])]
-                    mask[component_index] = 1
+                    mask[parameter_index] = 1
                     w[hidden] = torch.Tensor([mask]).T * w[hidden]
                     b[hidden] = torch.Tensor([mask]).T * b[hidden]
                     activity = activity if activity is not None else 1
 
                 else:
                     mask = [0 for _ in range(frame.size[input])]
-                    mask[component_index] = 1
+                    mask[parameter_index] = 1
                     w[output] = torch.Tensor([mask]) * w[output]
                     b[output] = torch.Tensor([[0]])
                     activity = activity if activity is not None else 0
 
-            elif component == "b":
+            elif parameter == "b":
                 w[output] = torch.Tensor([[0, 0]])
                 activity = activity if activity is not None else 0
 
@@ -237,7 +237,7 @@ class Animation:
 
             else:
                 raise ValueError(
-                    f'Unsupported component "{component}". You may select a component from the following: "b", or an integer index of the compoennt.'
+                    f'Unsupported parameter "{parameter}". You may select a parameter from the following: "b", or an integer index of the compoennt.'
                 )
 
         return NodeView(
@@ -260,7 +260,7 @@ default_eye = (1, 1, 1)
 
 
 @dataclass
-class Frame:
+class AnimationFrame:
     X: torch.Tensor
     targets: torch.Tensor = None
     preds: Dict[str, torch.Tensor] = None

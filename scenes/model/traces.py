@@ -1,8 +1,8 @@
-from typing import List
+from typing import List, Union
 import torch
 import plotly.graph_objects as go
-from base import Animation, Frame, NodeView, get_domain_surface, parse_node_index, parse_node_module
-from learning import bce_loss, predict
+from base import Animation, AnimationFrame, NodeView
+from learning import predict
 from themes import Theme, default_theme
 
 
@@ -377,107 +377,9 @@ def model_surface(
     return [surface, border]
 
 
-def gradients(
-    X,
-    targets,
-    surface_points,
-    surface_linspace,
-    w,
-    b,
-    modules,
-    activations,
-    param1=["output_1", 0],
-    param2=["output_1", 1],
-    loss_function=bce_loss,
-    activity=1,
-    show_profile=False,
-    res=20,
-    meta=None,
-):
-    domain = torch.Tensor([(-10, 10), (-10, 10)])
-    surface_linspace, surface_points = get_domain_surface(domain, res)
-
-    sx = surface_linspace[:, 0]
-    sy = surface_linspace[:, 1]
-
-    # skip input module
-    modules = modules[1:]
-
-    losses = []
-
-    module_1 = parse_node_module(param1[0])
-    module_2 = parse_node_module(param2[0])
-    module_1_index = parse_node_index(param1[0])
-    module_2_index = parse_node_index(param2[0])
-
-    for point in surface_points:
-        for i, module in enumerate(modules):
-            module_w = w[module].clone()
-            if module == module_1:
-                module_w[module_1_index][param1[1]] = point[0]
-            elif module == module_2:
-                module_w[module_2_index][param2[1]] = point[1]
-            activity = activity if i == len(modules) - 1 else None
-
-            preds = predict(
-                X,
-                module_w,
-                b[module],
-                activation=activations[module],
-                activity=activity,
-            )
-
-            losses.append(torch.nansum(loss_function(preds, targets)))
-
-    losses = torch.stack(losses)
-    losses = torch.reshape(losses, (res, res))
-    losses = torch.rot90(losses, 3)
-    losses = torch.flip(losses, dims=[1])
-
-    surface = go.Surface(
-        x=sx,
-        y=sy,
-        z=losses,
-        showscale=False,
-        colorscale="plasma" if not show_profile else ["black", "black"],
-        opacity=0.8 if not show_profile else 1,
-        meta=meta,
-    )
-
-    # left = torch.stack((domain[0][0].expand(res), torch.flip(sy, dims=[0])))
-    # top = torch.stack((sx, domain[1][0].expand(res)))
-    # right = torch.stack((domain[0][1].expand(res), sy))
-    # bottom = torch.stack((torch.flip(sx, dims=[0]), domain[1][1].expand(res)))
-
-    # lines = torch.cat((left.T, top.T, right.T, bottom.T))
-
-    # preds = lines.T
-    # for i, module in enumerate(modules):
-    #     activity = activity if i == len(modules) - 1 else None
-    #     preds = predict(
-    #         preds.T,
-    #         w[module],
-    #         b[module],
-    #         activation=activations[module],
-    #         activity=activity,
-    #     )
-
-    # border = go.Scatter3d(
-    #     x=lines[:, 0],
-    #     y=lines[:, 1],
-    #     z=preds[0],
-    #     mode="lines",
-    #     line=dict(color="black", width=profile_line_width),
-    #     meta=meta,
-    #     visible=show_profile,
-    # )
-
-    return [surface]
-
-
 def _model_traces(
     view: NodeView,
-    frame: Frame,
+    frame: AnimationFrame,
     show_profile,
     focused_feature,
     show_preds=True,
@@ -523,7 +425,7 @@ def _model_traces(
     ]
 
 
-def model_traces(view: NodeView, frame: Frame, animation: Animation) -> List[go.Scatter3d]:
+def model_traces(view: NodeView, frame: AnimationFrame, animation: Animation) -> List[go.Scatter3d]:
     return _model_traces(
         view,
         frame,
@@ -534,15 +436,15 @@ def model_traces(view: NodeView, frame: Frame, animation: Animation) -> List[go.
     )
 
 
-def weights_traces(frame: Frame, animation: Animation, component: int) -> List[go.Scatter3d]:
+def weights_traces(frame: AnimationFrame, animation: Animation, parameter: Union[int, str]) -> List[go.Scatter3d]:
     return _model_traces(
-        view=animation.node_view(frame, component=component),
+        view=animation.node_view(frame, parameter=parameter),
         frame=frame,
         marker_size=animation.theme.marker_size * 0.666,
         show_profile=True,
         focused_feature=None,
         show_preds=animation.show_weights_preds,
         show_targets=animation.show_weights_preds,
-        profile_line_width=animation.component_line_width,
+        profile_line_width=animation.theme.parameters_line_width,
         theme=animation.theme,
     )

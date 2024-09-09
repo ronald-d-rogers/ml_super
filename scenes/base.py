@@ -1,12 +1,12 @@
 from typing import List, NamedTuple, Tuple
 
-from base import Animation, Frame, NodeView
+from base import Animation, AnimationFrame, NodeView
 
 import plotly.graph_objs as go
 from plotly.basedatatypes import BaseTraceType
 
 
-class SceneUpdate(NamedTuple):
+class Frame(NamedTuple):
     scene: go.layout.Scene
     traces: List[BaseTraceType]
     annotations: List[go.layout.Annotation]
@@ -25,8 +25,8 @@ class Scene:
         self.animation = animation
         self.scene_types = scene_types
 
-    def create_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def create_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         raise NotImplementedError
 
-    def update_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def update_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         raise NotImplementedError

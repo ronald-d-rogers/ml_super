@@ -15,11 +15,11 @@ from scenes.nn.annotations import nn_annotations
 
 from scenes.model.frame import ModelScene, WeightsAndBiasesScene
 
-from base import Frame, Animation, NodeView
+from base import AnimationFrame, Animation, NodeView
 from utils import TRANSPARENT
 
 
-def get_colors(frame: Frame, view: NodeView, animation: Animation):
+def get_colors(frame: AnimationFrame, view: NodeView, animation: Animation):
     output = view.modules[-1]
     hidden_or_input = view.modules[-2]
     feature_colors = animation.focusable_colors(frame.focused_feature, frame.size[hidden_or_input])
@@ -34,7 +34,7 @@ def get_colors(frame: Frame, view: NodeView, animation: Animation):
     return output_colors, feature_colors
 
 
-def make_frame(frame: Frame, animation: Animation, name: str):
+def make_frame(frame: AnimationFrame, animation: Animation, name: str):
     if frame.eye:
         eye = dict(x=frame.eye[0], y=frame.eye[1], z=frame.eye[2])
     else:
@@ -201,12 +201,12 @@ class Layout:
     def render_frames(self) -> List[go.Frame]:
         pass
 
-    def render_frame(self, frame: Frame) -> go.Frame:
+    def render_frame(self, frame: AnimationFrame) -> go.Frame:
         pass
 
 
 def animate(
-    frames: list[Frame],
+    frames: list[AnimationFrame],
     model_node="output_1",
     show_model=True,
     show_parameters=False,

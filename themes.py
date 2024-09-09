@@ -31,7 +31,7 @@ class Theme:
     cost_label_xshift = 0
     cost_label_xanchor = "left"
     label_font_size = 40
-    component_line_width = 6
+    parameters_line_width = 6
 
 
 themes = dict(

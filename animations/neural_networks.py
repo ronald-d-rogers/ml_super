@@ -1,7 +1,7 @@
 import random
 import torch
 
-from base import Frame
+from base import AnimationFrame
 from learning import predict, sigmoid, sigmoid_derivative
 from numpy import linspace as ls
 import numpy as np
@@ -21,7 +21,7 @@ def get_animation(
         chapters = all_chapters
 
     def capture(count=1):
-        frame = Frame(
+        frame = AnimationFrame(
             X=X,
             targets=targets,
             preds=clone(preds),

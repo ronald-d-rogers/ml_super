@@ -2,8 +2,8 @@ from typing import List, Union
 import plotly.graph_objs as go
 
 from animation import get_colors
-from base import Animation, Frame, NodeView
-from scenes.base import Scene, SceneUpdate
+from base import Animation, AnimationFrame, NodeView
+from scenes.base import Scene, Frame
 from scenes.model.annotations import (
     feature_annotations,
     inference_annotation,
@@ -16,7 +16,7 @@ from themes import Theme
 from utils import TRANSPARENT
 
 
-def get_default_scene(frame: Frame, theme: Theme, show_bg: bool, output_colors: List[str]) -> go.layout.Scene:
+def get_default_scene(frame: AnimationFrame, theme: Theme, show_bg: bool, output_colors: List[str]) -> go.layout.Scene:
     return go.layout.Scene(
         camera=dict(eye=frame.get_eye(as_dict=True), projection=dict(type="orthographic")),
         aspectmode="manual",
@@ -58,14 +58,14 @@ class ModelScene(Scene):
         self.name = name or self.name
         self.height = height or self.height
 
-    def create_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def create_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         theme = self.animation.theme
         show_bg = self.animation.show_bg
         output_colors, _ = get_colors(frame, view, self.animation)
         scene = get_default_scene(frame, theme, show_bg, output_colors)
-        return [SceneUpdate(scene, [], [])]
+        return [Frame(scene, [], [])]
 
-    def update_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def update_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         view = self.animation.node_view(frame)
 
         show_label_names = self.animation.show_label_names
@@ -135,7 +135,7 @@ class ModelScene(Scene):
             show=self.animation.show_model,
         )
 
-        return [SceneUpdate(scene, data, annotations)]
+        return [Frame(scene, data, annotations)]
 
 
 class WeightsAndBiasesScene(Scene):
@@ -165,7 +165,7 @@ class WeightsAndBiasesScene(Scene):
         self.zoom = zoom or self.zoom
         super().__init__(animation, self.scene_types)
 
-    def create_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def create_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         theme = self.animation.theme
         show_bg = self.animation.show_bg
         output_colors, feature_colors = get_colors(frame, view, self.animation)
@@ -197,7 +197,7 @@ class WeightsAndBiasesScene(Scene):
                     ),
                     zaxis=dict(title="", showgrid=False, showticklabels=False),
                 )
-                updates.append(SceneUpdate(scene, [], []))
+                updates.append(Frame(scene, [], []))
             else:
                 scene = get_default_scene(frame, theme, show_bg, output_colors)
                 scene.update(
@@ -217,11 +217,11 @@ class WeightsAndBiasesScene(Scene):
                     ),
                     zaxis=dict(showticklabels=False, range=frame.get_bias_zrange(pad=True)),
                 )
-                updates.append(SceneUpdate(scene, [], []))
+                updates.append(Frame(scene, [], []))
 
         return updates
 
-    def update_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def update_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         view = self.animation.node_view(frame)
         _, feature_colors = get_colors(frame, view, self.animation)
 
@@ -235,8 +235,8 @@ class WeightsAndBiasesScene(Scene):
                     xaxis=dict(backgroundcolor=feature_colors[i - 1]),
                     yaxis=dict(backgroundcolor=feature_colors[i - 1], range=frame.get_range(dim=1, pad=True)),
                 )
-                data = weights_traces(frame, self.animation, component=i)
-                updates.append(SceneUpdate(scene, data, []))
+                data = weights_traces(frame, self.animation, parameter=i)
+                updates.append(Frame(scene, data, []))
             else:
                 bias_eye = frame.get_bias_eye()
                 scene = go.layout.Scene(
@@ -244,7 +244,7 @@ class WeightsAndBiasesScene(Scene):
                     xaxis=dict(backgroundcolor=feature_colors[-1]),
                     yaxis=dict(backgroundcolor=feature_colors[0]),
                 )
-                data = weights_traces(frame, self.animation, component="b")
-                updates.append(SceneUpdate(scene, data, []))
+                data = weights_traces(frame, self.animation, parameter="b")
+                updates.append(Frame(scene, data, []))
 
         return updates

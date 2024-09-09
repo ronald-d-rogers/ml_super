@@ -1,7 +1,7 @@
 from typing import List
 
-from base import Frame, NodeView
-from scenes.base import Scene, SceneUpdate
+from base import AnimationFrame, NodeView
+from scenes.base import Scene, Frame
 from scenes.nn.annotations import nn_annotations
 from scenes.nn.traces import nn_traces
 
@@ -11,12 +11,12 @@ class NeuralNetworkScene(Scene):
     scene_types = ["scatter"]
     height = 768
 
-    def create_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def create_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         return []
 
-    def update_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def update_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         return [
-            SceneUpdate(
+            Frame(
                 scene=None,
                 traces=nn_traces(frame, self.animation),
                 annotations=nn_annotations(frame, self.animation, show=self.animation.show_network),

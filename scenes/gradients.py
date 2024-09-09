@@ -3,9 +3,9 @@ import torch
 
 import plotly.graph_objs as go
 
-from base import Frame, NodeView, get_domain_surface, parse_node_index, parse_node_module
+from base import AnimationFrame, NodeView, get_domain_surface, parse_node_index, parse_node_module
 from learning import bce_loss, predict
-from scenes.base import Scene, SceneUpdate
+from scenes.base import Scene, Frame
 
 
 class GradientScene(Scene):
@@ -13,12 +13,12 @@ class GradientScene(Scene):
     scene_types = ["scene"]
     height = 768
 
-    def create_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def create_frames(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         return []
 
-    def update_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
+    def update_frames(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         return [
-            SceneUpdate(
+            Frame(
                 scene=None,
                 traces=gradients(
                     frame.X,
