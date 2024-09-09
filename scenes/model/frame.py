@@ -51,12 +51,8 @@ class ModelScene(Scene):
     scene_types = ["scene"]
     height = 768
 
-    def __init__(
-        self, animation: Animation, specs: List[dict], row: int, col: int, name: str = None, height: int = None
-    ):
-        super().__init__(animation, specs, row, col)
-        self.name = name or self.name
-        self.height = height or self.height
+    def __init__(self, animation: Animation):
+        super().__init__(animation, self.scene_types)
 
     def create_scenes(self, view: NodeView, frame: AnimationFrame) -> List[Frame]:
         theme = self.animation.theme
@@ -139,7 +135,7 @@ class ModelScene(Scene):
 
 
 class WeightsAndBiasesScene(Scene):
-    height = 182
+    height = 250
     zoom = 3
 
     @property
@@ -150,7 +146,7 @@ class WeightsAndBiasesScene(Scene):
     def scene_types(self):
         return ["scene"] * len(self.names)
 
-    def __init__(self, animation: Animation, parameters: List[Union[int, str]], height: int = 182, zoom=3):
+    def __init__(self, animation: Animation, parameters: List[Union[int, str]], height: int = None, zoom: int = None):
         if not parameters:
             raise ValueError("Parameters must be a non-empty list of integers or strings")
 

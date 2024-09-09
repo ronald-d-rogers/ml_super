@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Tuple
+from typing import List, NamedTuple
 
 from base import Animation, AnimationFrame, NodeView
 
