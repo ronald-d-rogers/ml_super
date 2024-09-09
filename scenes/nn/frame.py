@@ -1,9 +1,7 @@
 from typing import List
+
 from base import Frame, NodeView
 from scenes.base import Scene, SceneUpdate
-
-import plotly.graph_objects as go
-
 from scenes.nn.annotations import nn_annotations
 from scenes.nn.traces import nn_traces
 

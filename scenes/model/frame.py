@@ -1,6 +1,6 @@
-from typing import List, Tuple
+from typing import List, Union
 import plotly.graph_objs as go
-from plotly.basedatatypes import BaseTraceType
+
 from animation import get_colors
 from base import Animation, Frame, NodeView
 from scenes.base import Scene, SceneUpdate
@@ -16,7 +16,7 @@ from themes import Theme
 from utils import TRANSPARENT
 
 
-def get_default_scene(frame: Frame, theme: Theme, show_bg: bool, output_colors: List[str]):
+def get_default_scene(frame: Frame, theme: Theme, show_bg: bool, output_colors: List[str]) -> go.layout.Scene:
     return go.layout.Scene(
         camera=dict(eye=frame.get_eye(as_dict=True), projection=dict(type="orthographic")),
         aspectmode="manual",
@@ -138,30 +138,34 @@ class ModelScene(Scene):
         return [SceneUpdate(scene, data, annotations)]
 
 
-class WeightsScene(Scene):
-    dim = None
-    bias = True
+class WeightsAndBiasesScene(Scene):
     height = 182
-    zoom = 1
+    zoom = 3
 
     @property
     def names(self):
-        return [f"Weight {i}" for i in range(self.animation.width)] + ["Bias"] if self.bias else []
+        return [f"Weight {i}" if i != "b" else "Bias" for i in range(self.parameters)]
 
     @property
     def scene_types(self):
         return ["scene"] * len(self.names)
 
-    def __init__(self, animation: Animation, dim: int, bias: bool = True, height: int = 182, zoom=1):
-        if not dim:
-            raise ValueError("dim must be a positive integer")
+    def __init__(self, animation: Animation, parameters: List[Union[int, str]], height: int = 182, zoom=3):
+        if not parameters:
+            raise ValueError("Parameters must be a non-empty list of integers or strings")
 
-        self.dim = dim
-        self.bias = bias
+        for i, parameter in enumerate(parameters):
+            if not isinstance(parameter, (int, str)):
+                raise ValueError(
+                    f"Invalid parameter at index {i}: Parameters must be integers or strings but got `{parameter}`"
+                )
+
+        self.parameters = parameters
         self.height = height or self.height
+        self.zoom = zoom or self.zoom
         super().__init__(animation, self.scene_types)
 
-    def create_scenes(self, view: NodeView, frame: Frame) -> List[go.Scene]:
+    def create_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
         theme = self.animation.theme
         show_bg = self.animation.show_bg
         output_colors, feature_colors = get_colors(frame, view, self.animation)
@@ -171,74 +175,76 @@ class WeightsScene(Scene):
 
         updates = []
 
-        for i in range(self.dim):
-            scene = get_default_scene(frame, theme, show_bg, output_colors)
-            scene.update(
-                aspectratio=dict(x=zoom, y=zoom, z=zoom / 2),
-                camera=dict(eye=weight_eyes[i]),
-                xaxis=dict(
-                    title="",
-                    showgrid=False,
-                    showticklabels=False,
-                    backgroundcolor=feature_colors[i],
-                ),
-                yaxis=dict(
-                    title="",
-                    showgrid=False,
-                    showticklabels=False,
-                    range=frame.get_range(dim=1, pad=True),
-                    backgroundcolor=feature_colors[i],
-                ),
-                zaxis=dict(title="", showgrid=False, showticklabels=False),
-            )
-            updates.append(SceneUpdate(scene, [], []))
-
-        if self.bias:
-            scene = get_default_scene(frame, theme, show_bg, output_colors)
-            scene.update(
-                aspectratio=dict(x=zoom / 1.4, y=zoom / 1.4, z=zoom / 2),
-                camera=dict(eye=bias_eye),
-                xaxis=dict(
-                    title="",
-                    showgrid=False,
-                    showticklabels=False,
-                    backgroundcolor=feature_colors[-1],
-                ),
-                yaxis=dict(
-                    title="",
-                    showgrid=False,
-                    showticklabels=False,
-                    backgroundcolor=feature_colors[0],
-                ),
-                zaxis=dict(showticklabels=False, range=frame.get_bias_zrange(pad=True)),
-            )
-            updates.append(SceneUpdate(scene, [], []))
+        for parameter in self.parameters:
+            if isinstance(parameter, int):
+                i = parameter
+                scene = get_default_scene(frame, theme, show_bg, output_colors)
+                scene.update(
+                    aspectratio=dict(x=zoom, y=zoom, z=zoom / 2),
+                    camera=dict(eye=weight_eyes[i - 1]),
+                    xaxis=dict(
+                        title="",
+                        showgrid=False,
+                        showticklabels=False,
+                        backgroundcolor=feature_colors[i - 1],
+                    ),
+                    yaxis=dict(
+                        title="",
+                        showgrid=False,
+                        showticklabels=False,
+                        range=frame.get_range(dim=1, pad=True),
+                        backgroundcolor=feature_colors[i - 1],
+                    ),
+                    zaxis=dict(title="", showgrid=False, showticklabels=False),
+                )
+                updates.append(SceneUpdate(scene, [], []))
+            else:
+                scene = get_default_scene(frame, theme, show_bg, output_colors)
+                scene.update(
+                    aspectratio=dict(x=zoom / 1.4, y=zoom / 1.4, z=zoom / 2),
+                    camera=dict(eye=bias_eye),
+                    xaxis=dict(
+                        title="",
+                        showgrid=False,
+                        showticklabels=False,
+                        backgroundcolor=feature_colors[-1],
+                    ),
+                    yaxis=dict(
+                        title="",
+                        showgrid=False,
+                        showticklabels=False,
+                        backgroundcolor=feature_colors[0],
+                    ),
+                    zaxis=dict(showticklabels=False, range=frame.get_bias_zrange(pad=True)),
+                )
+                updates.append(SceneUpdate(scene, [], []))
 
         return updates
 
-    def update_scenes(self, view: NodeView, frame: Frame) -> List[Tuple[go.Scene, List[BaseTraceType]]]:
+    def update_scenes(self, view: NodeView, frame: Frame) -> List[SceneUpdate]:
         view = self.animation.node_view(frame)
         _, feature_colors = get_colors(frame, view, self.animation)
 
         updates = []
         weight_eyes = frame.get_weight_eyes()
-        for i in range(self.dim):
-            scene = go.layout.Scene(
-                camera=dict(eye=weight_eyes[i - 1]),
-                xaxis=dict(backgroundcolor=feature_colors[i - 1]),
-                yaxis=dict(backgroundcolor=feature_colors[i - 1], range=frame.get_range(dim=1, pad=True)),
-            )
-            data = weights_traces(frame, self.animation, component=i)
-            updates.append(SceneUpdate(scene, data, []))
-
-        if self.bias:
-            bias_eye = frame.get_bias_eye()
-            scene = go.layout.Scene(
-                camera=dict(eye=bias_eye),
-                xaxis=dict(backgroundcolor=feature_colors[-1]),
-                yaxis=dict(backgroundcolor=feature_colors[0]),
-            )
-            data = weights_traces(frame, self.animation, component="b")
-            updates.append(SceneUpdate(scene, data, []))
+        for parameter in self.parameters:
+            i = parameter
+            if isinstance(parameter, int):
+                scene = go.layout.Scene(
+                    camera=dict(eye=weight_eyes[i - 1]),
+                    xaxis=dict(backgroundcolor=feature_colors[i - 1]),
+                    yaxis=dict(backgroundcolor=feature_colors[i - 1], range=frame.get_range(dim=1, pad=True)),
+                )
+                data = weights_traces(frame, self.animation, component=i)
+                updates.append(SceneUpdate(scene, data, []))
+            else:
+                bias_eye = frame.get_bias_eye()
+                scene = go.layout.Scene(
+                    camera=dict(eye=bias_eye),
+                    xaxis=dict(backgroundcolor=feature_colors[-1]),
+                    yaxis=dict(backgroundcolor=feature_colors[0]),
+                )
+                data = weights_traces(frame, self.animation, component="b")
+                updates.append(SceneUpdate(scene, data, []))
 
         return updates

@@ -13,7 +13,7 @@ from themes import Theme, default_theme, merge_themes, themes
 from scenes.model.traces import model_surface, weights_traces
 from scenes.nn.annotations import nn_annotations
 
-from scenes.model.frame import ModelScene
+from scenes.model.frame import ModelScene, WeightsAndBiasesScene
 
 from base import Frame, Animation, NodeView
 from utils import TRANSPARENT
@@ -85,8 +85,8 @@ def make_frame(frame: Frame, animation: Animation, name: str):
         ),
     )
 
-    if animation.show_weights:
-        for i in animation.show_weights:
+    if animation.show_parameters:
+        for i in animation.show_parameters:
             if isinstance(i, int):
                 value.layout[f"scene{i + 1}"] = dict(
                     camera=dict(eye=weight_eyes[i - 1]),
@@ -209,7 +209,7 @@ def animate(
     frames: list[Frame],
     model_node="output_1",
     show_model=True,
-    show_weights=False,
+    show_parameters=False,
     show_gradients=False,
     show_tables=False,
     show_network=False,
@@ -236,7 +236,7 @@ def animate(
         model_node=model_node,
         render_path=render_path,
         show_model=show_model,
-        show_weights=show_weights,
+        show_parameters=show_parameters,
         show_gradients=show_gradients,
         show_network=show_network,
         show_calculations=show_tables,
@@ -254,10 +254,10 @@ def animate(
     input_module = view.modules[-2]
     input_size = frame.size[input_module]
 
-    if show_weights is True:
-        show_weights = list(range(1, input_size + 1)) + ["b"]
+    if show_parameters is True:
+        show_parameters = list(range(1, input_size + 1)) + ["b"]
 
-    animation.show_weights = show_weights
+    animation.show_parameters = show_parameters
 
     height = 0
     width = 1080 * scale
@@ -272,60 +272,19 @@ def animate(
     scenes = []
 
     if show_model:
-        row_count += 1
         scenes.append(ModelScene(animation))
-        specs.append([dict(type="scene", colspan=num_columns)] + [None] * (num_columns - 1))
-        row_heights.append(model_height)
-        cells["model"] = dict(row=row_count, col=1)
 
-    if show_weights:
-        row_count += 1
-        specs.append([dict(type="scene")] * num_columns)
-        row_heights.append(components_height)
-        col = None
-        for weight in show_weights:
-            if isinstance(weight, int):
-                name = f"weight{weight}"
-                col = weight
-                cells[name] = dict(row=row_count, col=col)
-                scenes.append(ModelScene(animation, row=row_count, col=col, name=name, height=components_height))
-            elif weight == "b":
-                name = "bias"
-                col = input_size + 1
-                cells[name] = dict(row=row_count, col=col)
-                scenes.append(ModelScene(animation, row=row_count, col=col, name=name, height=components_height))
-            else:
-                raise ValueError(f"Invalid weight: {weight}")
+    if show_parameters:
+        scenes.append(WeightsAndBiasesScene(animation, parameters=show_parameters))
 
     if show_gradients:
-        row_count += 1
-        specs.append([dict(type="scene", colspan=num_columns)] + [None] * (num_columns - 1))
-        row_heights.append(gradients_height)
-        cells["gradient"] = dict(row=row_count, col=1)
         scenes.append(GradientScene(animation))
 
     if show_tables:
-        row_count += 1
-        specs.append([dict(type="table", colspan=num_columns)] + [None] * (num_columns - 1))
-        row_heights.append(losses_height)
-        cells["losses"] = dict(row=row_count, col=1)
         scenes.append(LossesScene(animation))
-
-        row_count += 1
-        scene = CostScene(animation)
-        height += scene.height
-        specs.append([dict(type="table", colspan=num_columns)] + [None] * (num_columns - 1))
-        row_heights.append(costs_height)
-        cells["cost"] = dict(row=row_count, col=1)
         scenes.append(CostScene(animation))
 
     if show_network:
-        row_count += 1
-        scene = NeuralNetworkScene(animation, row=row_count, col=1)
-        height += scene.height
-        specs.append([dict(type="scatter", colspan=num_columns)] + [None] * (num_columns - 1))
-        row_heights.append(network_height)
-        cells["network"] = dict(row=row_count, col=1)
         scenes.append(NeuralNetworkScene(animation))
 
     if not render_path:
@@ -372,13 +331,13 @@ def animate(
 
     fig.for_each_scene(lambda x: x.update(scene))
 
-    if show_weights:
+    if show_parameters:
         zoom = 3
 
         weight_eyes = view.get_weight_eyes(as_dict=True)
         bias_eye = frame.get_bias_eye(as_dict=True)
 
-        for i in show_weights:
+        for i in show_parameters:
             if isinstance(i, int):
                 fig.layout[f"scene{i + 1}"].update(
                     aspectratio=dict(x=zoom, y=zoom, z=zoom / 2),

@@ -1,8 +1,7 @@
-import numpy as np
 import torch
+import numpy as np
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple, List, Union
-
 
 from scenes.base import Scene
 from themes import Theme, default_theme
@@ -111,7 +110,7 @@ class Animation:
     scale: int = 2
     show_bg: bool = True
     render_path: str = None
-    show_weights: bool = True
+    show_parameters: bool = True
     show_gradients: bool = True
     show_weights_preds: bool = False
     show_label_names: bool = True
