@@ -1,98 +1,60 @@
+from typing import Any, Optional, Union
+from dataclasses import dataclass, field
+
 import torch
 import numpy as np
-from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple, List, Union
 
-from components.base import SceneComponent
-from themes import Theme, default_theme
+
+from themes import Theme, DEFAULT_THEME
 from utils import clone, hex_to_rgb, interp_rgb, rgb_to_str
 
 
-def parse_node_module(view_str: str):
-    return view_str.split("_")[0]
+DEFAULT_CONTROLS_HEIGHT = 130
 
 
-def parse_node_index(view_str: str):
-    return int(view_str.split("_")[1]) - 1
+class ViewFrameUpdate:
+    view: Any
+    data: list[Any]
+    annotations: list[Any]
 
+    def __init__(self, view, data, annotations):
+        self.view = view if view is not None else None
+        self.data = data if data is not None else []
+        self.annotations = annotations if annotations is not None else []
 
-def get_domain(X):
-    return torch.Tensor(
-        [
-            (torch.min(X[:, 0]), torch.max(X[:, 0])),
-            (torch.min(X[:, 1]), torch.max(X[:, 1])),
-        ]
-    )
+    def __getitem__(self, key):
+        if hasattr(self, key):
+            return getattr(self, key)
+        raise KeyError(key)
 
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
 
-def get_padded_domain(domain, padding):
-    return torch.Tensor(
-        [
-            (domain[0][0] - padding, domain[0][1] + padding),
-            (domain[1][0] - padding, domain[1][1] + padding),
-        ]
-    )
+    def __contains__(self, key):
+        return hasattr(self, key)
 
-
-def get_domain_surface(domain, resolution=20):
-    linspace = torch.stack(
-        (
-            torch.linspace(domain[0][0], domain[0][1], resolution),
-            torch.linspace(domain[1][0], domain[1][1], resolution),
-        ),
-        dim=1,
-    )
-
-    vertices = torch.cartesian_prod(linspace[:, 0], linspace[:, 1])
-
-    return linspace, vertices
-
-
-def focusable_feature_colors(focused_feature: Union[None, bool], colors: List[str], focused_colors: List[str]):
-    # if focused_feature is not None:
-    #     return {
-    #         0: theme.focused_feature_colors[0] if focused_feature == 0 else theme.feature_colors[0],
-    #         1: theme.focused_feature_colors[1] if focused_feature == 1 else theme.feature_colors[1],
-    #     }
-    # else:
-    #     return theme.feature_colors
-    if focused_feature is None:
-        return colors
-    else:
-        return [focused_colors[focused_feature] if i == focused_feature else colors[i] for i in range(len(colors))]
-
-
-def get_weight_eyes(weight_eyes, as_dict=False):
-    if not weight_eyes:
-        return None
-
-    if not as_dict:
-        return weight_eyes
-
-    return [dict(x=x, y=y, z=z) for x, y, z in weight_eyes]
-
-
-def interp_colors(color1, color2, n):
-    colors = interp_rgb(hex_to_rgb(color1), hex_to_rgb(color2), n)
-    return [rgb_to_str(c) for c in colors]
+    def get(self, key, default=None):
+        if key in self:
+            return self[key]
+        return default
 
 
 @dataclass
 class NodeView:
-    w: Dict[str, torch.Tensor]
-    b: Dict[str, torch.Tensor]
-    modules: List[str]
+    w: dict[str, torch.Tensor]
+    b: dict[str, torch.Tensor]
+    modules: list[str]
     targets: torch.Tensor
     preds: torch.Tensor = None
     derivatives: torch.Tensor = None
     errors: torch.Tensor = None
     losses: torch.Tensor = None
     costs: torch.Tensor = None
-    focused_preds: List[int] = None
-    focused_errors: List[int] = None
+    focused_preds: list[int] = None
+    focused_errors: list[int] = None
     activity: float = 1
-    weight_eyes: Tuple[Tuple[float, float, float], ...] = None
-    bias_eye: Tuple[float, float, float] = (1, 1, 0)
+    weight_eyes: tuple[tuple[float, float, float], ...] = None
+    bias_eye: tuple[float, float, float] = (1, 1, 0)
 
     def get_weight_eyes(self, as_dict=False):
         return get_weight_eyes(self.weight_eyes, as_dict=as_dict)
@@ -110,13 +72,13 @@ class Animation:
     scale: int = 2
     show_bg: bool = True
     render_path: str = None
-    show_parameters: bool = True
+    show_params: bool = True
     show_gradients: bool = True
     show_weights_preds: bool = False
     show_label_names: bool = True
-    theme: Theme = default_theme
+    show_controls: bool = False
+    theme: Theme = DEFAULT_THEME
     cells: dict = field(default_factory=dict)
-    scene: List[SceneComponent] = field(default_factory=list)
 
     _node_module = None
     _node_index = None
@@ -149,7 +111,7 @@ class Animation:
         self,
         frame: "AnimationFrame",
         parameter: Union[int, str] = None,
-        weight_eyes: Tuple[Tuple[float, float, float], ...] = None,
+        weight_eyes: tuple[tuple[float, float, float], ...] = None,
         activity: float = None,
     ):
         module = self.node_module
@@ -263,45 +225,45 @@ default_eye = (1, 1, 1)
 class AnimationFrame:
     X: torch.Tensor
     targets: torch.Tensor = None
-    preds: Dict[str, torch.Tensor] = None
-    derivatives: Dict[str, torch.Tensor] = None
-    errors: Dict[str, torch.Tensor] = None
-    losses: Dict[str, torch.Tensor] = None
-    costs: Dict[str, torch.Tensor] = None
+    preds: dict[str, torch.Tensor] = None
+    derivatives: dict[str, torch.Tensor] = None
+    errors: dict[str, torch.Tensor] = None
+    losses: dict[str, torch.Tensor] = None
+    costs: dict[str, torch.Tensor] = None
     loss: torch.Tensor = None
-    w: Dict[str, torch.Tensor] = None
-    b: Dict[str, torch.Tensor] = None
+    w: dict[str, torch.Tensor] = None
+    b: dict[str, torch.Tensor] = None
     loss_fn: callable = None
-    activation_fns: Dict[str, callable] = None
-    size: Dict[str, int] = field(default_factory=lambda: {"input": 2, "hidden": 2, "output": 1})
-    modules: List[str] = field(default_factory=lambda: ["input", "hidden", "output"])
+    activation_fns: dict[str, callable] = None
+    size: dict[str, int] = field(default_factory=lambda: {"input": 2, "hidden": 2, "output": 1})
+    modules: list[str] = field(default_factory=lambda: ["input", "hidden", "output"])
     epochs: int = 30
     learning_rate: float = 0.5
     resolution: int = 30
     activity: float = 1
-    zrange: Optional[Tuple[float, float]] = (0, 1)
-    bias_zrange: Optional[Tuple[float, float]] = (-1, 2)
+    zrange: Optional[tuple[float, float]] = (0, 1)
+    bias_zrange: Optional[tuple[float, float]] = (-1, 2)
     domain_padding: float = 2
     range_padding: float = 2.5
     zrange_padding: float = 0.05
-    eye: Tuple[float, float, float] = default_eye
-    weight_eyes: Tuple[Tuple[float, float, float], ...] = None
-    bias_eye: Tuple[float, float, float] = (1, 1, 0)
-    aspect_ratio: Tuple[float, float, float] = (1, 1, 1)
+    eye: tuple[float, float, float] = default_eye
+    weight_eyes: tuple[tuple[float, float, float], ...] = None
+    bias_eye: tuple[float, float, float] = (1, 1, 0)
+    aspect_ratio: tuple[float, float, float] = (1, 1, 1)
     show_preds: bool = True
     show_profile: bool = False
     show_decision_boundaries: bool = False
     inference: torch.Tensor = None
-    active_preds: Dict[str, List[List[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
-    active_errors: Dict[str, List[List[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
-    focused_node: Dict[str, int] = field(default_factory=lambda: {"input": None, "hidden": None, "output": None})
-    focused_connections: Dict[str, int] = field(default_factory=lambda: {"input": [], "hidden": [], "output": []})
+    active_preds: dict[str, list[list[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
+    active_errors: dict[str, list[list[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
+    focused_node: dict[str, int] = field(default_factory=lambda: {"input": None, "hidden": None, "output": None})
+    focused_connections: dict[str, int] = field(default_factory=lambda: {"input": [], "hidden": [], "output": []})
     focused_feature: int = None
-    focused_inputs: List[int] = field(default_factory=list)
-    focused_targets: List[int] = field(default_factory=list)
-    focused_preds: Dict[str, List[List[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
-    focused_errors: Dict[str, List[List[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
-    focused_losses: Dict[str, List[List[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
+    focused_inputs: list[int] = field(default_factory=list)
+    focused_targets: list[int] = field(default_factory=list)
+    focused_preds: dict[str, list[list[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
+    focused_errors: dict[str, list[list[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
+    focused_losses: dict[str, list[list[int]]] = field(default_factory=lambda: {"hidden": [], "output": []})
     focus_targets: bool = False
     focus_labels: bool = None
     focus_costs: bool = False
@@ -310,9 +272,9 @@ class AnimationFrame:
     _domain: torch.Tensor = field(init=False, repr=False)
     _surface_points: torch.Tensor = field(init=False, repr=False)
     _surface_line: torch.Tensor = field(init=False, repr=False)
-    _size: Dict[str, int] = field(init=False, repr=False)
-    _node_points: Dict[str, Tuple[Tuple[float], ...]] = field(init=False, repr=False)
-    _weight_eyes: Tuple[Tuple[float, float, float], ...] = field(init=False, repr=False)
+    _size: dict[str, int] = field(init=False, repr=False)
+    _node_points: dict[str, tuple[tuple[float], ...]] = field(init=False, repr=False)
+    _weight_eyes: tuple[tuple[float, float, float], ...] = field(init=False, repr=False)
 
     @property
     def X(self) -> int:
@@ -320,7 +282,7 @@ class AnimationFrame:
         return self._X
 
     @property
-    def size(self) -> Dict[str, int]:
+    def size(self) -> dict[str, int]:
         return self._size
 
     @property
@@ -370,12 +332,12 @@ class AnimationFrame:
         self._X = X
 
     @size.setter
-    def size(self, size: Dict[str, int]):
+    def size(self, size: dict[str, int]):
         self._node_points = None
         self._size = size
 
     @weight_eyes.setter
-    def weight_eyes(self, weight_eyes: Tuple[Tuple[float, float, float], ...]):
+    def weight_eyes(self, weight_eyes: tuple[tuple[float, float, float], ...]):
         self._weight_eyes = weight_eyes
 
     def get_eye(self, as_dict=False):
@@ -445,3 +407,135 @@ class AnimationFrame:
         domain = self.get_domain(pad=True, padding=padding)
 
         return (domain[dim][0], domain[dim][1])
+
+
+class LayoutComponent:
+    animation: Animation
+    height: int
+    view_names: list[str]
+    view_types: list[str]
+
+    @property
+    def column_count(self):
+        return len(self.view_types)
+
+    def __init__(self, animation: Animation, view_types: list[str]) -> None:
+        self.animation = animation
+        self.view_types = view_types
+
+    def create_component(self, view: NodeView, frame: AnimationFrame) -> list[ViewFrameUpdate]:
+        raise NotImplementedError
+
+    def update_component(self, view: NodeView, frame: AnimationFrame) -> list[ViewFrameUpdate]:
+        raise NotImplementedError
+
+
+class Layout:
+    animation: Animation
+    _rows: list[LayoutComponent] = []
+    _specs: list[dict] = []
+    _height: int = None
+    _column_count: int = 0
+
+    @property
+    def height(self):
+        if not self._height:
+            self._height = sum([scene.height for scene in self._rows])
+        return self._height
+
+    @property
+    def column_count(self):
+        return self._column_count
+
+    @property
+    def row_count(self):
+        return len(self._rows)
+
+    @property
+    def row_heights(self):
+        return [scene.height for scene in self._rows]
+
+    def __init__(self, animation: Animation):
+        self.animation = animation
+
+    def add_component(self, component: LayoutComponent):
+        self._column_count = max(self._column_count, component.column_count)
+        self._rows.append(component)
+
+    def create_figure(self, first_frame: AnimationFrame):
+        raise NotImplementedError
+
+    def make_frames(self, frames: list[AnimationFrame]) -> list[Any]:
+        raise NotImplementedError
+
+    def make_frame(self, frame: AnimationFrame, name=0) -> Any:
+        raise NotImplementedError
+
+
+def parse_node_module(view_str: str):
+    return view_str.split("_")[0]
+
+
+def parse_node_index(view_str: str):
+    return int(view_str.split("_")[1]) - 1
+
+
+def get_domain(X):
+    return torch.Tensor(
+        [
+            (torch.min(X[:, 0]), torch.max(X[:, 0])),
+            (torch.min(X[:, 1]), torch.max(X[:, 1])),
+        ]
+    )
+
+
+def get_padded_domain(domain, padding):
+    return torch.Tensor(
+        [
+            (domain[0][0] - padding, domain[0][1] + padding),
+            (domain[1][0] - padding, domain[1][1] + padding),
+        ]
+    )
+
+
+def get_domain_surface(domain, resolution=20):
+    linspace = torch.stack(
+        (
+            torch.linspace(domain[0][0], domain[0][1], resolution),
+            torch.linspace(domain[1][0], domain[1][1], resolution),
+        ),
+        dim=1,
+    )
+
+    vertices = torch.cartesian_prod(linspace[:, 0], linspace[:, 1])
+
+    return linspace, vertices
+
+
+def focusable_feature_colors(focused_feature: Union[None, bool], colors: list[str], focused_colors: list[str]):
+    # if focused_feature is not None:
+    #     return {
+    #         0: theme.focused_feature_colors[0] if focused_feature == 0 else theme.feature_colors[0],
+    #         1: theme.focused_feature_colors[1] if focused_feature == 1 else theme.feature_colors[1],
+    #     }
+    # else:
+    #     return theme.feature_colors
+    if focused_feature is None:
+        return colors
+    else:
+        return [focused_colors[focused_feature] if i == focused_feature else colors[i] for i in range(len(colors))]
+
+
+def get_weight_eyes(weight_eyes, as_dict=False):
+    if not weight_eyes:
+        return None
+
+    if not as_dict:
+        return weight_eyes
+
+    return [dict(x=x, y=y, z=z) for x, y, z in weight_eyes]
+
+
+def interp_colors(color1, color2, n):
+    colors = interp_rgb(hex_to_rgb(color1), hex_to_rgb(color2), n)
+    return [rgb_to_str(c) for c in colors]
