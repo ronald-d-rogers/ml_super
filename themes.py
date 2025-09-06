@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -8,11 +7,11 @@ class Theme:
     font_family: str = "Comic Sans MS, Droid Sans, sans-serif"
     font_size: int = 24
     background_color: str = None
-    class_colors: List[str] = None
-    feature_colors: List[str] = None
-    feature_grid_colors: List[str] = None
-    feature_text_colors: List[str] = None
-    focused_feature_colors: List[str] = None
+    class_colors: list[str] = None
+    feature_colors: list[str] = None
+    feature_grid_colors: list[str] = None
+    feature_text_colors: list[str] = None
+    focused_feature_colors: list[str] = None
     feature_note_border_color: str = None
     target_color: str = None
     target_grid_color: str = None
@@ -24,14 +23,14 @@ class Theme:
     note_background_color: str = None
     note_border_color: str = None
     marker_size: int = 30
-    show_label_names = True
-    label_precision = 3
-    label_yshift = 0
-    cost_label_yshift = 0
-    cost_label_xshift = 0
-    cost_label_xanchor = "left"
-    label_font_size = 40
-    parameters_line_width = 6
+    show_label_names: bool = True
+    label_precision: int = 3
+    label_yshift: int = 0
+    cost_label_yshift: int = 0
+    cost_label_xshift: int = 0
+    cost_label_xanchor: str = "left"
+    label_font_size: int = 40
+    parameters_line_width: int = 6
 
 
 themes = dict(
@@ -94,8 +93,6 @@ themes = dict(
     ),
 )
 
-default_theme: Theme = themes["super"]
-
 
 def merge_themes(*themes: Theme) -> Theme:
     merged = Theme()
@@ -105,3 +102,6 @@ def merge_themes(*themes: Theme) -> Theme:
             if value is not None:
                 setattr(merged, field, value)
     return merged
+
+
+DEFAULT_THEME: Theme = themes["super"]

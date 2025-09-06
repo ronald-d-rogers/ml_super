@@ -10,7 +10,7 @@ from utils import clone
 
 from sklearn.datasets import make_circles
 
-all_chapters = ["logistic", "xor", "neural", "fit", "weights", "fit-guassian"]
+all_chapters = ["logistic", "xor", "neural", "fit", "weights", "fit-gaussian"]
 
 
 def get_animation(
@@ -553,7 +553,7 @@ def get_animation(
 
         capture()
 
-    if "fail-guassian" in chapters:
+    if "fail-gaussian" in chapters:
         torch.manual_seed(20)
 
         eye = initial_eye
@@ -628,7 +628,7 @@ def get_animation(
 
         torch.manual_seed(42)
 
-    if "guassian" in chapters:
+    if "gaussian" in chapters:
         torch.manual_seed(40)
 
         eye = initial_eye
